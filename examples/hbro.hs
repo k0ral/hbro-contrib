@@ -5,6 +5,7 @@ module Main where
 import qualified Hbro.Bookmarks as Bookmarks
 import qualified Hbro.BookmarksQueue as Queue
 import Hbro.Clipboard
+import Hbro.Config
 import Hbro.Core
 import qualified Hbro.Download as Download
 import Hbro.Gui
@@ -84,7 +85,7 @@ myBookmarksFile   directories = (mData directories) </> "bookmarks"
 -- How to download files
 myDownloadHook :: Environment -> URI -> String -> Int -> IO ()
 myDownloadHook env uri filename _size = do
-    Download.labelNotify env
+    --Download.labelNotify env
     home <- getHomeDirectory 
     Download.aria uri home filename
 
