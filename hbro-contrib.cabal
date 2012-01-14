@@ -44,5 +44,6 @@ Library
         Hbro.History,
         Hbro.Misc,
         Hbro.Session,
-        Hbro.StatusBar
+        Hbro.StatusBar,
+        Hbro.WebSettings
     Ghc-options: -Wall

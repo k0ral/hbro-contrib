@@ -18,6 +18,7 @@ import Hbro.Socket
 import Hbro.StatusBar
 import Hbro.Types
 import Hbro.Util
+import Hbro.WebSettings
 
 import Control.Monad hiding(forM_, mapM_)
 
@@ -229,7 +230,7 @@ myWebSettings = [
     --webSettingsResizableTextAreas             := True,
     webSettingsSpellCheckingLang                := Just "en_US",
     --webSettingsTabKeyCyclesThroughElements    := True,
-    webSettingsUserAgent                        := "Mozilla/5.0 (X11; Linux x86_64; rv:2.0.1) Gecko/20100101 Firefox/4.0.1"
+    webSettingsUserAgent                        := firefoxUserAgent
     --webSettingsUserStylesheetUri              := Nothing,
     --webSettingsZoomStep                       := 0.1
     ]
