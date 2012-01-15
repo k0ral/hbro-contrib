@@ -71,7 +71,12 @@ myConfig directories = (defaultConfig directories) {
     mHomePage         = myHomePage,
     mWebSettings      = myWebSettings,
     mSetup            = mySetup,
-    mDownloadHook     = myDownloadHook
+    mHooks            = myHooks
+}
+
+myHooks = defaultHooks {
+    mDownload  = myDownloadHook
+    --mNewWindow = myNewWindowHook
 }
 
 -- Various constant parameters
