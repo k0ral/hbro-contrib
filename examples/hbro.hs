@@ -13,6 +13,7 @@ import Hbro.Hbro
 import qualified Hbro.History as History
 import Hbro.Keys
 import Hbro.Misc
+import qualified Hbro.Prompt as Prompt
 import Hbro.Session
 import Hbro.Socket
 import Hbro.StatusBar
@@ -134,7 +135,7 @@ myKeys environment@Environment{ mGUI = gui, mConfig = config, mContext = context
     (([Control],        "<Home>"),      scroll scrolledWindow Vertical   (Absolute 0)),
     (([Control],        "<End>"),       scroll scrolledWindow Vertical   (Absolute 100)),
     (([Alt],            "<Home>"),      goHome webView config),
-    (([Control],        "g"),           prompt "Google search" [] (\words -> forM_ (parseURIReference ("https://www.google.com/search?q=" ++ words)) (webViewLoadUri webView)) gui),
+    (([Control],        "g"),           Prompt.read promptBar "Google search" [] (\words -> forM_ (parseURIReference ("https://www.google.com/search?q=" ++ words)) (webViewLoadUri webView))),
 
 -- Display
     (([Control, Shift], "+"),           webViewZoomIn    webView),
@@ -145,13 +146,13 @@ myKeys environment@Environment{ mGUI = gui, mConfig = config, mContext = context
     (([Control],        "u"),           toggleSourceMode webView),
 
 -- Prompt
-    (([Control],        "o"),           prompt "Open URL " [] ((mapM_ (webViewLoadUri webView)) . parseURIReference) gui),
-    (([Control, Shift], "O"),           webViewGetUri webView >>= mapM_ (\uri -> prompt "Open URL " (show uri) ((mapM_ (webViewLoadUri webView)) . parseURIReference) gui)),
+    (([Control],        "o"),           Prompt.read promptBar "Open URL" [] ((mapM_ (webViewLoadUri webView)) . parseURIReference)),
+    (([Control, Shift], "O"),           webViewGetUri webView >>= mapM_ (\uri -> Prompt.read promptBar "Open URL " (show uri) ((mapM_ (webViewLoadUri webView)) . parseURIReference))),
 
 -- Search
-    (([Shift],          "/"),           promptIncremental "Search " [] (\word -> webViewSearchText webView word False True True >> return ()) gui),
-    (([Control],        "f"),           promptIncremental "Search " [] (\word -> webViewSearchText webView word False True True >> return ()) gui),
-    (([Shift],          "?"),           promptIncremental "Search " [] (\word -> webViewSearchText webView word False False True >> return ()) gui),
+    (([Shift],          "/"),           Prompt.readIncremental promptBar "Search " [] (\word -> webViewSearchText webView word False True True >> return ())),
+    (([Control],        "f"),           Prompt.readIncremental promptBar "Search " [] (\word -> webViewSearchText webView word False True True >> return ())),
+    (([Shift],          "?"),           Prompt.readIncremental promptBar "Search " [] (\word -> webViewSearchText webView word False False True >> return ())),
     (([Control],        "n"),           entryGetText promptEntry >>= \word -> webViewSearchText webView word False True True >> return ()),
     (([Control, Shift], "N"),           entryGetText promptEntry >>= \word -> webViewSearchText webView word False False True >> return ()),
 
@@ -170,14 +171,14 @@ myKeys environment@Environment{ mGUI = gui, mConfig = config, mContext = context
 
 -- Bookmarks
     (([Control],        "d"),           webViewGetUri webView >>= mapM_ (\uri -> 
-        prompt "Bookmark with tags:" "" (\tags -> void $
+        Prompt.read promptBar "Bookmark with tags:" "" (\tags -> void $
             Bookmarks.add bookmarksFile (Bookmarks.Entry uri (words tags))) 
-        gui)),
-    (([Control, Shift], "D"),           prompt "Bookmark all instances with tag:" "" (\tags -> 
+        )),
+    (([Control, Shift], "D"),           Prompt.read promptBar "Bookmark all instances with tag:" "" (\tags -> 
         ((map parseURI) `fmap` (sendCommandToAll context socketDir "GET_URI"))
         >>= mapM (mapM_ $ \uri -> Bookmarks.add bookmarksFile $ Bookmarks.Entry uri (words tags)) 
         >> (webViewGetUri webView) >>= mapM_ (\uri -> Bookmarks.add bookmarksFile $ Bookmarks.Entry uri (words tags))) 
-    gui),
+    ),
     (([Alt],            "d"),           Bookmarks.deleteWithTag bookmarksFile ["-l", "10"]),
     (([Control],        "l"),           Bookmarks.select        bookmarksFile ["-l", "10"] >>= mapM_ ((mapM_ (webViewLoadUri webView)) . parseURIReference)),
     (([Control, Shift], "L"),           Bookmarks.selectTag     bookmarksFile ["-l", "10"] >>= mapM_ (\uris -> mapM (\uri -> spawn "hbro" ["-u", (show uri)]) uris >> return ())),
