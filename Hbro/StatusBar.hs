@@ -28,12 +28,18 @@ import System.Glib.Signals
 -- }}}
 
 
+-- notify :: Environment -> String -> Color -> IO ()
+-- notify env text color = do
+--     widget <- builderGetObject ((mBuilder . mGUI) env) castToLabel "feedback"
+--     labelSetAttributes widget [Attrforeground{ paStart = 0, paEnd = -1, paColor = color }]
+--     labelSetMarkupTemporary widget text 5000
+
+
 -- | Write current scroll position in the given Label.
 setupScrollWidget :: Label -> ScrolledWindow -> IO ()
 setupScrollWidget widget window = do
     labelSetAttributes widget [
-        AttrForeground {paStart = 0, paEnd = -1, paColor = Color 32767 32767 32767}
-        ]
+        AttrForeground {paStart = 0, paEnd = -1, paColor = Color 32767 32767 32767}]
       
     adjustment  <- scrolledWindowGetVAdjustment window
 
@@ -89,26 +95,22 @@ statusBarLoadProgress widget webView = do
 -- Load started
     _ <- on webView loadStarted $ \_ -> do
         labelSetAttributes widget [
-            AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 0 0}
-            ]
+            AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 0 0}]
         labelSetText widget "0%"
 -- Progress changed    
     _ <- on webView progressChanged $ \progress' -> do
         labelSetAttributes widget [
-            AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 0}
-            ]
+            AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 0}]
         labelSetText widget $ show progress' ++ "%"
 -- Load finished
     _ <- on webView loadFinished $ \_ -> do
         labelSetAttributes widget [
-            AttrForeground {paStart = 0, paEnd = -1, paColor = Color 0 65535 0}
-            ]
+            AttrForeground {paStart = 0, paEnd = -1, paColor = Color 0 65535 0}]
         labelSetText widget "100%"
 -- Error
     _ <- on webView loadError $ \_ _ _ -> do
         labelSetAttributes widget [
-            AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 0 0}
-            ]
+            AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 0 0}]
         labelSetText widget "ERROR"
         return False
     
@@ -141,10 +143,9 @@ labelSetURI normalColors secureColors widget uri = do
           
     let i:j:k:l:_ = map length [
           uriScheme uri,
-          maybe "" uriRegName (uriAuthority uri),
+          maybe [] uriRegName (uriAuthority uri),
           uriPath uri,
-          uriQuery uri
-          ]
+          uriQuery uri]
  
     labelSetAttributes widget $ [
         AttrWeight{     paStart = 0,         paEnd = -1,          paWeight = WeightBold },
@@ -152,8 +153,7 @@ labelSetURI normalColors secureColors widget uri = do
         AttrForeground{ paStart = i+2,       paEnd = i+2+j,       paColor = mHost colors },
         AttrForeground{ paStart = i+2+j,     paEnd = i+2+j+k,     paColor = mPath colors },
         AttrForeground{ paStart = i+2+j+k,   paEnd = i+2+j+k+l,   paColor = mQuery colors },
-        AttrForeground{ paStart = i+2+j+k+l, paEnd = -1,          paColor = mFragment colors }
-        ]
+        AttrForeground{ paStart = i+2+j+k+l, paEnd = -1,          paColor = mFragment colors }]
                         
     labelSetText widget (show uri)
                          

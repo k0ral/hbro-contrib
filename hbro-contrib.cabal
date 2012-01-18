@@ -2,7 +2,7 @@ Name:                hbro-contrib
 Version:             0.8.0.0
 Synopsis:            Third-party extensions to hbro.
 -- Description:         
-Homepage:            http://projects.haskell.org/hbro-contrib/
+Homepage:            https://github.com/k0ral/hbro-contrib/
 Category:            Browser,Web
 
 License:             OtherLicense

@@ -14,8 +14,8 @@ import System.FilePath
 
 labelNotify :: Environment -> IO ()
 labelNotify env = do
-  feedbackLabel <- builderGetObject ((mBuilder . mGUI) env)  castToLabel "feedback"
-  labelSetMarkupTemporary feedbackLabel "<span foreground=\"green\">Download started</span>" 5000
+    feedbackLabel <- builderGetObject ((mBuilder . mGUI) env)  castToLabel "feedback"
+    labelSetMarkupTemporary feedbackLabel "<span foreground=\"green\">Download started</span>" 5000
   
 aria, wget, axel :: URI -> FilePath -> String -> IO ()
 aria uri directory filename = spawn "aria2c" [show uri, "-d", directory, "-o", filename]

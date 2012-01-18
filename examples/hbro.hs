@@ -36,7 +36,6 @@ import Graphics.UI.Gtk.General.General
 import Graphics.UI.Gtk.WebKit.Download
 import Graphics.UI.Gtk.WebKit.NetworkRequest
 import Graphics.UI.Gtk.WebKit.WebNavigationAction
-import Graphics.UI.Gtk.WebKit.WebPolicyDecision
 import Graphics.UI.Gtk.WebKit.WebSettings
 import Graphics.UI.Gtk.WebKit.WebView hiding(webViewGetUri, webViewLoadUri)
 import Graphics.UI.Gtk.Windows.Window
@@ -135,7 +134,7 @@ myKeys environment@Environment{ mGUI = gui, mConfig = config, mContext = context
     (([Control],        "<Home>"),      scroll scrolledWindow Vertical   (Absolute 0)),
     (([Control],        "<End>"),       scroll scrolledWindow Vertical   (Absolute 100)),
     (([Alt],            "<Home>"),      goHome webView config),
-    (([Control],        "g"),           Prompt.read promptBar "Google search" [] (\words -> forM_ (parseURIReference ("https://www.google.com/search?q=" ++ words)) (webViewLoadUri webView))),
+    (([Control],        "g"),           Prompt.read promptBar "Google search" [] ((mapM_ (webViewLoadUri webView) . parseURI . ("https://www.google.com/search?q=" ++)))),
 
 -- Display
     (([Control, Shift], "+"),           webViewZoomIn    webView),
@@ -159,8 +158,8 @@ myKeys environment@Environment{ mGUI = gui, mConfig = config, mContext = context
 -- Copy/paste
     (([Control],        "y"),           webViewGetUri   webView >>= mapM_ (toClipboard . show)),
     (([Control, Shift], "Y"),           webViewGetTitle webView >>= mapM_ toClipboard),
-    (([Control],        "p"),           withClipboard $ maybe (return ()) ((mapM_ (webViewLoadUri webView)) . parseURIReference)),
-    (([Control, Shift], "P"),           withClipboard $ maybe (return ()) (\uri -> spawn "hbro" ["-u", uri])),
+    (([Control],        "p"),           withClipboard $ mapM_ ((mapM_ (webViewLoadUri webView)) . parseURIReference)),
+    (([Control, Shift], "P"),           withClipboard $ mapM_ (\uri -> spawn "hbro" ["-u", uri])),
 
 -- Misc
     (([],               "<Escape>"),    widgetHide $ mBox promptBar),
@@ -171,9 +170,7 @@ myKeys environment@Environment{ mGUI = gui, mConfig = config, mContext = context
 
 -- Bookmarks
     (([Control],        "d"),           webViewGetUri webView >>= mapM_ (\uri -> 
-        Prompt.read promptBar "Bookmark with tags:" "" (\tags -> void $
-            Bookmarks.add bookmarksFile (Bookmarks.Entry uri (words tags))) 
-        )),
+        Prompt.read promptBar "Bookmark with tags:" [] (void . Bookmarks.add bookmarksFile . Bookmarks.Entry uri . words))),
     (([Control, Shift], "D"),           Prompt.read promptBar "Bookmark all instances with tag:" "" (\tags -> 
         ((map parseURI) `fmap` (sendCommandToAll context socketDir "GET_URI"))
         >>= mapM (mapM_ $ \uri -> Bookmarks.add bookmarksFile $ Bookmarks.Entry uri (words tags)) 
@@ -276,14 +273,6 @@ mySetup environment@Environment{ mGUI = gui, mConfig = config } =
     -- 
         _ <- on webView titleChanged $ \_ title ->
             set window [ windowTitle := ("hbro | " ++ title)]
-
-    -- Per MIME actions
-        _ <- on webView mimeTypePolicyDecisionRequested $ \_ request mimetype policyDecision -> do
-            show <- webViewCanShowMimeType webView mimetype
-
-            case (show, mimetype) of
-                (True, _) -> webPolicyDecisionUse policyDecision >> return True
-                _         -> webPolicyDecisionDownload policyDecision >> return True
 
     -- History handler
         _ <- on webView loadFinished $ \_ -> do
