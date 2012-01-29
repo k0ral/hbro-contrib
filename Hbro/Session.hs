@@ -21,21 +21,21 @@ import System.Posix.Process
 import System.Process 
 -- }}}
 
-setupSession :: WebView -> String -> IO ()
-setupSession webView sessionDirectory = do
-    pid             <- getProcessID
-    previousSession <- getDirectoryContents sessionDirectory
-
-    let sessionFile = sessionDirectory ++ show pid
-
-    _ <- on webView loadFinished $ \_ -> do
-        webViewGetUri webView >>= mapM_ ((writeFile sessionFile) . show)
-        
-    _ <- quitAdd 0 $ do
-        removeFile sessionFile
-        return False
-    
-    return ()
+--setupSession :: WebView -> String -> IO ()
+--setupSession webView sessionDirectory = do
+--    pid             <- getProcessID
+--    previousSession <- getDirectoryContents sessionDirectory
+-- 
+--    let sessionFile = sessionDirectory ++ show pid
+-- 
+--    _ <- on webView loadFinished $ \_ -> do
+--        webViewGetUri webView >>= mapM_ ((writeFile sessionFile) . show)
+--        
+--    _ <- quitAdd 0 $ do
+--        removeFile sessionFile
+--        return False
+--    
+--    return ()
 
 
 --loadFromSession :: [String] -> String -> IO ()

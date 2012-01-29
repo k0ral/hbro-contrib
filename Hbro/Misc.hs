@@ -1,8 +1,8 @@
 module Hbro.Misc where
 
 -- {{{ Imports
---import Hbro.Core
---import Hbro.Types
+import Hbro.Core
+import Hbro.Types
 import Hbro.Util
 
 import Data.Maybe
@@ -50,25 +50,25 @@ import System.IO
 
 
 -- | List preceding URIs in dmenu and let the user select which one to load.
-goBackList :: WebView -> [String] -> IO (Maybe URI)
-goBackList webView dmenuOptions = do
-    list           <- webViewGetBackForwardList webView
-    n              <- webBackForwardListGetBackLength list
-    backList       <- webBackForwardListGetBackListWithLimit list n
-    dmenuList      <- mapM itemToEntry backList
+goBackList :: [String] -> K (Maybe URI)
+goBackList dmenuOptions = do
+    list           <- with (mWebView . mGUI) webViewGetBackForwardList
+    n              <- io $ webBackForwardListGetBackLength list
+    backList       <- io $ webBackForwardListGetBackListWithLimit list n
+    dmenuList      <- io $ mapM itemToEntry backList
     
-    (>>= (parseURIReference . head . words)) `fmap` (dmenu dmenuOptions $ (unlines . catMaybes) dmenuList)
+    (>>= (parseURIReference . head . words)) `fmap` (io . dmenu dmenuOptions . unlines . catMaybes) dmenuList
     
 
 -- | List succeeding URIs in dmenu and let the user select which one to load.
-goForwardList :: WebView -> [String] -> IO (Maybe URI)
-goForwardList webView dmenuOptions = do
-    list        <- webViewGetBackForwardList webView
-    n           <- webBackForwardListGetForwardLength list
-    forwardList <- webBackForwardListGetForwardListWithLimit list n
-    dmenuList   <- mapM itemToEntry forwardList
+goForwardList :: [String] -> K (Maybe URI)
+goForwardList dmenuOptions = do
+    list        <- with (mWebView . mGUI) webViewGetBackForwardList
+    n           <- io $ webBackForwardListGetForwardLength list
+    forwardList <- io $ webBackForwardListGetForwardListWithLimit list n
+    dmenuList   <- io $ mapM itemToEntry forwardList
     
-    (>>= (parseURIReference . head . words)) `fmap` (dmenu dmenuOptions $ (unlines . catMaybes) dmenuList)
+    (>>= (parseURIReference . head . words)) `fmap` (io . dmenu dmenuOptions . unlines . catMaybes) dmenuList
 
 
 itemToEntry :: WebHistoryItem -> IO (Maybe String)
@@ -78,12 +78,3 @@ itemToEntry item = do
     case uri of
         Just u -> return $ Just (u ++ " | " ++ (maybe "Untitled" id title))
         _      -> return Nothing
-
-
--- | Toggle source display.
--- Current implementation forces a refresh of current web page, which may be undesired.
-toggleSourceMode :: WebView -> IO ()
-toggleSourceMode webView = do
-    currentMode <- webViewGetViewSourceMode webView
-    webViewSetViewSourceMode webView (not currentMode)
-    webViewReload webView

@@ -1,9 +1,11 @@
 module Hbro.StatusBar where
 
 -- {{{ Imports
+import Hbro.Core
 --import Hbro.Keys
+import Hbro.Gui
 import Hbro.Types
---import Hbro.Util 
+import Hbro.Util 
 
 import Control.Monad hiding(forM_, mapM_)
 
@@ -15,7 +17,7 @@ import Graphics.Rendering.Pango.Enums
 import Graphics.Rendering.Pango.Layout
 
 import Graphics.UI.Gtk.Display.Label
-import Graphics.UI.Gtk.Gdk.EventM
+--import Graphics.UI.Gtk.Gdk.EventM
 import Graphics.UI.Gtk.Misc.Adjustment
 import Graphics.UI.Gtk.Scrolling.ScrolledWindow
 import Graphics.UI.Gtk.WebKit.WebView
@@ -36,81 +38,62 @@ import System.Glib.Signals
 
 
 -- | Write current scroll position in the given Label.
-setupScrollWidget :: Label -> ScrolledWindow -> IO ()
-setupScrollWidget widget window = do
-    labelSetAttributes widget [
-        AttrForeground {paStart = 0, paEnd = -1, paColor = Color 32767 32767 32767}]
-      
-    adjustment  <- scrolledWindowGetVAdjustment window
-
-    _ <- onValueChanged adjustment $ do
-        current <- adjustmentGetValue    adjustment
-        lower   <- adjustmentGetLower    adjustment
-        upper   <- adjustmentGetUpper    adjustment
-        page    <- adjustmentGetPageSize adjustment
-        
-        case upper-lower-page of
-            0 -> labelSetText widget "ALL"
-            x -> labelSetText widget $ show (round $ current/x*100) ++ "%"
-
-    labelSetText widget "0%"
-
+setupScrollWidget :: Label -> K ()
+setupScrollWidget widget = do
+    adjustment <- with (mScrollWindow . mGUI) $ scrolledWindowGetVAdjustment
+    io $ do
+        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 32767 32767 32767}]
+    
+        _ <- onValueChanged adjustment $ do
+            current <- adjustmentGetValue    adjustment
+            lower   <- adjustmentGetLower    adjustment
+            upper   <- adjustmentGetUpper    adjustment
+            page    <- adjustmentGetPageSize adjustment
+            
+            case upper-lower-page of
+                0 -> labelSetText widget "ALL"
+                x -> labelSetText widget $ show (round $ current/x*100) ++ "%"
+     
+        labelSetText widget "0%"
 
 -- | /!\ Doesn't work for now.
 -- Write current zoom level in the given Label.
-statusBarZoomLevel :: Label -> WebView -> IO ()
-statusBarZoomLevel widget webView = do
-    zoomLevel <- webViewGetZoomLevel webView
-            
-    labelSetMarkup widget $ "<span foreground=\"white\">x" ++ escapeMarkup (show zoomLevel) ++ "</span>"
+setupZoomWidget :: Label -> K ()
+setupZoomWidget widget = do
+    io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 65535}] 
+    with (mWebView . mGUI) webViewGetZoomLevel >>= io . labelSetMarkup widget . escapeMarkup . show 
     
-
 -- | 
-withFeedback :: Label -> KeyEventCallback -> [Modifier] -> String -> IO Bool
-withFeedback widget callback modifiers keys = do  
--- Trigger callback
-    result <- callback modifiers keys
+printInLabel :: String -> (String, Bool) -> K (String, Bool)
+printInLabel label (keystrokes, match) = do  
+    widget <- getObject castToLabel label
+    io $ do
+        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 0}]
     
--- Set color depending on result
-    let color = case result of
-            True -> Color 0 65535 0
-            _    -> Color 65535 0 0
-        
-    labelSetAttributes widget [
-        AttrForeground {paStart = 0, paEnd = -1, paColor = color}
-        ]
-    
--- Write keystrokes state to label
-    case (modifiers, isSuffixOf "<Escape>" keys) of
-        (_ , True) -> labelSetText widget []
-        ([], _)    -> labelSetText widget keys
-        (_, _)     -> labelSetText widget (show modifiers ++ keys)
+        case match of
+            True -> labelSetText widget []
+            _    -> labelSetText widget keystrokes
           
-    return result
-  
+    return (keystrokes, match)
 
 -- | Write current load progress in the given Label.
-statusBarLoadProgress :: Label -> WebView -> IO ()
-statusBarLoadProgress widget webView = do
+setupProgressWidget :: Label -> K ()
+setupProgressWidget widget = with (mWebView . mGUI) $ \webView -> do
 -- Load started
     _ <- on webView loadStarted $ \_ -> do
-        labelSetAttributes widget [
-            AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 0 0}]
+        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 0 0}]
         labelSetText widget "0%"
 -- Progress changed    
     _ <- on webView progressChanged $ \progress' -> do
-        labelSetAttributes widget [
-            AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 0}]
+        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 0}]
         labelSetText widget $ show progress' ++ "%"
 -- Load finished
     _ <- on webView loadFinished $ \_ -> do
-        labelSetAttributes widget [
-            AttrForeground {paStart = 0, paEnd = -1, paColor = Color 0 65535 0}]
+        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 0 65535 0}]
         labelSetText widget "100%"
 -- Error
     _ <- on webView loadError $ \_ _ _ -> do
-        labelSetAttributes widget [
-            AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 0 0}]
+        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 0 0}]
         labelSetText widget "ERROR"
         return False
     
@@ -118,8 +101,8 @@ statusBarLoadProgress widget webView = do
 
 
 -- | Write current URI, or the destination of a hovered link, in the given Label.
-setupURIWidget :: URIColors -> URIColors -> Label -> WebView -> IO ()
-setupURIWidget normalColors secureColors widget webView = do
+setupURIWidget :: URIColors -> URIColors -> Label -> K ()
+setupURIWidget normalColors secureColors widget = with (mWebView . mGUI) $ \webView -> do
 -- URI changed
     _ <- on webView loadCommitted $ \_ ->
         (mapM_ (labelSetURI normalColors secureColors widget)) =<< ((>>= parseURIReference) `fmap` (webViewGetUri webView))

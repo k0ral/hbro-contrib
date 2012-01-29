@@ -37,7 +37,6 @@ import Graphics.UI.Gtk.WebKit.Download
 import Graphics.UI.Gtk.WebKit.NetworkRequest
 import Graphics.UI.Gtk.WebKit.WebNavigationAction
 import Graphics.UI.Gtk.WebKit.WebSettings
-import Graphics.UI.Gtk.WebKit.WebView hiding(webViewGetUri, webViewLoadUri)
 import Graphics.UI.Gtk.Windows.Window
 
 import Network.URI
@@ -54,6 +53,7 @@ import System.Glib.Signals
 import System.Process 
 -- }}}
 
+-- {{{ Configuration structure
 -- Main function, expected to call launchHbro.
 -- You can add custom tasks before & after calling it.
 main :: IO ()
@@ -61,134 +61,94 @@ main = launchHbro myConfig
 
 -- A structure containing your configuration settings, overriding
 -- fields in the default config. Any you don't override will     
--- use the defaults defined in Hbro.Types.Parameters.
-myConfig :: CommonDirectories -> Config
-myConfig directories = (defaultConfig directories) {
-    mSocketDir        = mySocketDirectory directories,
-    mUIFile           = myUIFile directories,
-    mKeyEventHandler  = myKeyEventHandler,
-    mKeyEventCallback = myKeyEventCallback,
+-- use the defaults defined in Hbro.Types.Config.
+myConfig :: Config
+myConfig = defaultConfig {
+    mSocketDir        = mySocketDirectory,
+    mUIFile           = myUIFile,
     mHomePage         = myHomePage,
     mWebSettings      = myWebSettings,
-    mSetup            = mySetup,
     mHooks            = myHooks
 }
 
+-- Commented fields are using default values
 myHooks = defaultHooks {
-    mDownload  = myDownloadHook
-    --mNewWindow = myNewWindowHook
+--  mBackForward     = myBackForward,
+    mDownload        = myDownloadHook,
+--  mFormResubmitted = myFormResubmitted,
+--  mFormSubmitted   = myFormSubmitted,
+    mKeyPressed      = manageSequentialKeys (defaultKeyHandler myKeys) >=> void . (printInLabel "keys"),
+--  mLinkClicked     = myLinkClicked,
+    mLoadFinished    = myLoadFinished,
+--  mMIMEDisposition = myMIMEDisposition,
+--  mNewWindow       = myNewWindowHook,
+--  mOtherNavigation = myOtherNavigation,
+--  mReload          = myReload,
+    mStartUp         = myStartUp
+--  mTitleChanged    = myTitleChanged
 }
+-- }}}
 
--- Various constant parameters
+-- {{{ Constant parameters
 myHomePage = "https://duckduckgo.com"
 
-mySocketDirectory, myUIFile, myHistoryFile, myBookmarksFile :: CommonDirectories -> FilePath
+mySocketDirectory, myUIFile, myHistoryFile, myBookmarksFile :: RefDirs -> FilePath
 mySocketDirectory             = mTemporary
 myUIFile          directories = (mConfiguration directories) </> "ui.xml"
 myHistoryFile     directories = (mData directories) </> "history"
 myBookmarksFile   directories = (mData directories) </> "bookmarks"
+-- }}}
 
--- How to download files
-myDownloadHook :: Environment -> URI -> String -> Int -> IO ()
-myDownloadHook env uri filename _size = do
-    --Download.labelNotify env
+-- {{{ Hooks
+myDownloadHook :: URI -> String -> Int -> K ()
+myDownloadHook uri filename _size = io $ do
     home <- getHomeDirectory 
     Download.aria uri home filename
 
--- How to handle keystrokes
-myKeyEventHandler :: KeyEventCallback -> ConnectId WebView -> WebView -> EventM EKey Bool
-myKeyEventHandler = advancedKeyEventHandler
-
-myKeyEventCallback :: Environment -> KeyEventCallback
-myKeyEventCallback environment@Environment{ mGUI = gui } modifiers keys = do
-    keysLabel <- builderGetObject (mBuilder gui) castToLabel "keys"
-    withFeedback keysLabel (simpleKeyEventCallback $ keysListToMap (myKeys environment)) modifiers keys
-
-
+myLoadFinished :: K ()
+myLoadFinished = 
+    withURI $ \uri -> do
+      withTitle $ \title -> io $ do
+        timeZone <- utcToLocalTime `fmap` getCurrentTimeZone
+        now      <- timeZone `fmap` getCurrentTime
+   
+        History.add myHistoryFile (History.Entry now uri title) >> return ()
+        
 -- {{{ Keys
 -- Note that this example is suited for an azerty keyboard.
-myKeys :: Environment -> KeysList
-myKeys environment@Environment{ mGUI = gui, mConfig = config, mContext = context } = let
-    window         = mWindow       gui
-    webView        = mWebView      gui
-    scrolledWindow = mScrollWindow gui
-    statusBox      = mStatusBar    gui
-    promptBar      = mPromptBar    gui
-    promptEntry    = mEntry promptBar
-    bookmarksFile  = myBookmarksFile (mCommonDirectories config)
-    historyFile    = myHistoryFile   (mCommonDirectories config)
-    socketDir      = mSocketDir config
-  in  
-    [
---  ((modifiers,        key),           callback)
+myKeys :: KeysList
+myKeys = defaultKeyBindings ++ [
 -- Browse
-    (([Control],        "<Left>"),      webViewGoBack    webView),
-    (([Control],        "<Right>"),     webViewGoForward webView),
-    (([Alt],            "<Left>"),      (goBackList    webView ["-l", "10"]) >>= mapM_ (webViewLoadUri webView)),
-    (([Alt],            "<Right>"),     (goForwardList webView ["-l", "10"]) >>= mapM_ (webViewLoadUri webView)),
-    (([Control],        "s"),           webViewStopLoading       webView),
-    (([],               "<F5>"),        webViewReload            webView),
-    (([Control],        "<F5>"),        webViewReloadBypassCache webView),
-    (([Control],        "^"),           scroll scrolledWindow Horizontal (Absolute 0)),
-    (([Control],        "$"),           scroll scrolledWindow Horizontal (Absolute 100)),
-    (([Control],        "<Home>"),      scroll scrolledWindow Vertical   (Absolute 0)),
-    (([Control],        "<End>"),       scroll scrolledWindow Vertical   (Absolute 100)),
-    (([Alt],            "<Home>"),      goHome webView config),
-    (([Control],        "g"),           Prompt.read promptBar "Google search" [] ((mapM_ (webViewLoadUri webView) . parseURI . ("https://www.google.com/search?q=" ++)))),
-
--- Display
-    (([Control, Shift], "+"),           webViewZoomIn    webView),
-    (([Control],        "-"),           webViewZoomOut   webView),
-    (([],               "<F11>"),       windowFullscreen   window),
-    (([],               "<Escape>"),    windowUnfullscreen window),
-    (([Control],        "b"),           toggleVisibility statusBox),
-    (([Control],        "u"),           toggleSourceMode webView),
-
--- Prompt
-    (([Control],        "o"),           Prompt.read promptBar "Open URL" [] ((mapM_ (webViewLoadUri webView)) . parseURIReference)),
-    (([Control, Shift], "O"),           webViewGetUri webView >>= mapM_ (\uri -> Prompt.read promptBar "Open URL " (show uri) ((mapM_ (webViewLoadUri webView)) . parseURIReference))),
-
--- Search
-    (([Shift],          "/"),           Prompt.readIncremental promptBar "Search " [] (\word -> webViewSearchText webView word False True True >> return ())),
-    (([Control],        "f"),           Prompt.readIncremental promptBar "Search " [] (\word -> webViewSearchText webView word False True True >> return ())),
-    (([Shift],          "?"),           Prompt.readIncremental promptBar "Search " [] (\word -> webViewSearchText webView word False False True >> return ())),
-    (([Control],        "n"),           entryGetText promptEntry >>= \word -> webViewSearchText webView word False True True >> return ()),
-    (([Control, Shift], "N"),           entryGetText promptEntry >>= \word -> webViewSearchText webView word False False True >> return ()),
-
+    ("C-<Left>",      goBackList    ["-l", "10"] >>= mapM_ loadURI),
+    ("C-<Right>",     goForwardList ["-l", "10"] >>= mapM_ loadURI),
+    ("C-g",           Prompt.read "Google search" [] ((mapM_ loadURI . parseURI . ("https://www.google.com/search?q=" ++)))),
 -- Copy/paste
-    (([Control],        "y"),           webViewGetUri   webView >>= mapM_ (toClipboard . show)),
-    (([Control, Shift], "Y"),           webViewGetTitle webView >>= mapM_ toClipboard),
-    (([Control],        "p"),           withClipboard $ mapM_ ((mapM_ (webViewLoadUri webView)) . parseURIReference)),
-    (([Control, Shift], "P"),           withClipboard $ mapM_ (\uri -> spawn "hbro" ["-u", uri])),
-
--- Misc
-    (([],               "<Escape>"),    widgetHide $ mBox promptBar),
-    (([Control],        "i"),           showWebInspector webView),
-    (([Alt],            "p"),           printPage        webView),
-    (([Control],        "t"),           spawn "hbro" []),
-    (([Control],        "w"),           mainQuit),
-
+    ("C-y",           withURI $ io . toClipboard . show),
+    ("M-y",           withTitle $ io . toClipboard),
+    ("C-p",           withClipboard $ mapM_ loadURI . parseURIReference),
+    ("M-p",           withClipboard $ \uri -> io $ spawn "hbro" ["-u", uri]),
 -- Bookmarks
-    (([Control],        "d"),           webViewGetUri webView >>= mapM_ (\uri -> 
-        Prompt.read promptBar "Bookmark with tags:" [] (void . Bookmarks.add bookmarksFile . Bookmarks.Entry uri . words))),
-    (([Control, Shift], "D"),           Prompt.read promptBar "Bookmark all instances with tag:" "" (\tags -> 
-        ((map parseURI) `fmap` (sendCommandToAll context socketDir "GET_URI"))
-        >>= mapM (mapM_ $ \uri -> Bookmarks.add bookmarksFile $ Bookmarks.Entry uri (words tags)) 
-        >> (webViewGetUri webView) >>= mapM_ (\uri -> Bookmarks.add bookmarksFile $ Bookmarks.Entry uri (words tags))) 
+    ("C-d",           Prompt.read "Bookmark with tags:" [] $ \tags -> do 
+        withURI $ (\uri -> (io . void . Bookmarks.add myBookmarksFile . Bookmarks.Entry uri . words) tags)
     ),
-    (([Alt],            "d"),           Bookmarks.deleteWithTag bookmarksFile ["-l", "10"]),
-    (([Control],        "l"),           Bookmarks.select        bookmarksFile ["-l", "10"] >>= mapM_ ((mapM_ (webViewLoadUri webView)) . parseURIReference)),
-    (([Control, Shift], "L"),           Bookmarks.selectTag     bookmarksFile ["-l", "10"] >>= mapM_ (\uris -> mapM (\uri -> spawn "hbro" ["-u", (show uri)]) uris >> return ())),
---    (([Control],        "q"),           webViewGetUri webView >>= maybe (return ()) (Queue.append),
---    (([Alt],            "q"),           \b -> do
+    ("C-D",           Prompt.read "Bookmark all instances with tag:" [] $ \tags -> 
+        (map parseURI `fmap` sendCommandToAll "GET_URI")
+        >>= mapM (mapM_ $ \uri -> (io . Bookmarks.add myBookmarksFile) $ Bookmarks.Entry uri (words tags)) 
+        >> (withURI $ \uri -> (io . void . Bookmarks.add myBookmarksFile) $ Bookmarks.Entry uri (words tags)) 
+    ),
+    ("M-d",           io $ Bookmarks.deleteWithTag myBookmarksFile ["-l", "10"]),
+    ("C-l",           io (Bookmarks.select        myBookmarksFile ["-l", "10"]) >>= mapM_ (mapM_ loadURI . parseURIReference)),
+    ("C-L",           io (Bookmarks.selectTag     myBookmarksFile ["-l", "10"]) >>= mapM_ (\uris -> mapM (\uri -> io $ spawn "hbro" ["-u", (show uri)]) uris >> return ())),
+--    ("C-q"),           webViewGetUri webView >>= maybe (return ()) (Queue.append),
+--    ("M-q"),           \b -> do
 --        uri <- Queue.popFront
 --        loadURI uri b),
 
 -- History
-    (([Control],        "h"),           History.select historyFile ["-l", "10"] >>= mapM_ ((webViewLoadUri webView) . History.mURI))
+    ("C-h",           io (History.select myHistoryFile ["-l", "10"]) >>= mapM_ loadURI . (return . (History.mURI) =<<))
     
 -- Session
-    --(([Alt],            "l"),           loadFromSession ["-l", "10"])
+    --("M-l"),           loadFromSession ["-l", "10"])
     ]
 -- }}}
 
@@ -240,79 +200,23 @@ myWebSettings = [
 -- }}}
 
 -- {{{ Setup
-mySetup :: Environment -> IO ()
-mySetup environment@Environment{ mGUI = gui, mConfig = config } = 
-    let
-        builder         = mBuilder      gui 
-        webView         = mWebView      gui
-        scrolledWindow  = mScrollWindow gui
-        window          = mWindow       gui
-        directories     = mCommonDirectories config
-        historyFile     = myHistoryFile directories
-        getLabel        = builderGetObject builder castToLabel
-    in do
+myStartUp :: K ()
+myStartUp = do
     -- Scroll position in status bar
-        scrollLabel <- getLabel "scroll"
-        setupScrollWidget scrollLabel scrolledWindow
+        setupScrollWidget =<< getObject castToLabel "scroll"
     
     -- Zoom level in status bar
-        zoomLabel <- getLabel "zoom"
-        statusBarZoomLevel zoomLabel webView
+        setupZoomWidget =<< getObject castToLabel "zoom"
                 
     -- Load progress in status bar
-        progressLabel <- getLabel "progress"
-        statusBarLoadProgress progressLabel webView
+        setupProgressWidget =<< getObject castToLabel "progress"
         
     -- Current URI in status bar
-        uriLabel <- getLabel "uri"
-        setupURIWidget defaultURIColors defaultSecureURIColors uriLabel webView
+        setupURIWidget defaultURIColors defaultSecureURIColors =<< getObject castToLabel "uri"
         
     -- Session manager
         --setupSession browser
-
-    -- 
-        _ <- on webView titleChanged $ \_ title ->
-            set window [ windowTitle := ("hbro | " ++ title)]
-
-    -- History handler
-        _ <- on webView loadFinished $ \_ -> do
-            uri      <- webViewGetUri   webView
-            title    <- webViewGetTitle webView
-            timeZone <- getCurrentTimeZone
-            now      <- (utcToLocalTime timeZone) `fmap` getCurrentTime
             
-            case (uri, title) of
-                (Just u, Just t) -> History.add historyFile (History.Entry now u t) >> return ()
-                _ -> return ()
-
-    -- On navigating to a new URI
-    -- Return True to forbid navigation, False to allow
-        _ <- on webView navigationPolicyDecisionRequested $ \_ request action policyDecision -> do
-            getUri      <- networkRequestGetUri request
-            reason      <- webNavigationActionGetReason action
-            mouseButton <- webNavigationActionGetButton action
-
-            case getUri of
-                Just ('m':'a':'i':'l':'t':'o':':':address) -> do
-                    putStrLn $ "Mailing to: " ++ address
-                    return True
-                Just uri -> 
-                    case mouseButton of
-                        1 -> return False -- Left button 
-                        2 -> spawn "hbro" ["-u", uri] >> putStrLn uri >> return True -- Middle button
-                        3 -> return False -- Right button
-                        _ -> return False -- No mouse button pressed
-                _        -> return False
-            
-    -- On requesting new window
-        _ <- on webView newWindowPolicyDecisionRequested $ \_ request action policyDecision -> do
-            getUri <- networkRequestGetUri request
-            case getUri of
-                Just uri -> (spawn "hbro" ["-u", uri]) >> putStrLn uri
-                _        -> putStrLn "ERROR: wrong URI given, unable to open window."
-
-            return True
-
     -- Favicon
         --_ <- on webView iconLoaded $ \uri -> do something
 

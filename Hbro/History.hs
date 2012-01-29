@@ -7,7 +7,7 @@ module Hbro.History (
 
 -- {{{ Imports
 --import Hbro.Core
---import Hbro.Types
+import Hbro.Types
 import Hbro.Util
 
 import Control.Exception
@@ -39,12 +39,13 @@ dateFormat = "%F %T"
 -- }}}
 
 -- | Add a new entry to history's database
-add :: FilePath   -- ^ Path to history file
-    -> Entry      -- ^ History entry to add
+add :: (RefDirs -> FilePath) -- ^ Path to history file
+    -> Entry                 -- ^ History entry to add
     -> IO Bool
-add historyFile newEntry = do
-    result <- try $ withFile historyFile AppendMode (`hPutStrLn` show newEntry)
-    either (\e -> errorHandler historyFile e >> return False) (const $ return True) result    
+add file newEntry = do
+    file'  <- resolve file
+    result <- try $ withFile file' AppendMode (`hPutStrLn` show newEntry)
+    either (\e -> errorHandler file' e >> return False) (const $ return True) result    
 
 -- | Try to parse a String into a history Entry.
 parseEntry :: String -> Maybe Entry
@@ -60,13 +61,14 @@ parseEntry' (d:t:u:t') = do
 parseEntry' _ = Nothing
 
 -- | Open a dmenu with all (sorted alphabetically) history entries, and return the user's selection, if any
-select :: FilePath           -- ^ Path to history file
+select :: (RefDirs -> FilePath) -- ^ Path to history file
        -> [String]           -- ^ dmenu's commandline options
        -> IO (Maybe Entry)   -- ^ Selected history entry, if any
-select historyFile dmenuOptions = do
-    result <- try $ readFile historyFile
+select file dmenuOptions = do
+    file'  <- resolve file
+    result <- try $ readFile file'
         
-    either (\e -> errorHandler historyFile e >> return Nothing) (return . return) result
+    either (\e -> errorHandler file' e >> return Nothing) (return . return) result
     >>= (return . ((return . unlines . reverse . sort . nub . lines) =<<))
     >>= (maybe (return Nothing) (dmenu dmenuOptions))
     >>= (return . (parseEntry =<<))
