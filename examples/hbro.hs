@@ -24,6 +24,7 @@ import Hbro.WebSettings
 import Control.Monad hiding(forM_, mapM_)
 
 import Data.Foldable
+import Data.Functor
 import Data.Time
 
 import Graphics.UI.Gtk.Abstract.Widget
@@ -102,14 +103,9 @@ myDownloadHook :: URI -> String -> Int -> K ()
 myDownloadHook uri filename _size = io $ Download.aria myDownloadDirectory uri filename
 
 myLoadFinished :: K ()
-myLoadFinished = 
-    withURI $ \uri -> do
-      withTitle $ \title -> io $ do
-        timeZone <- utcToLocalTime `fmap` getCurrentTimeZone
-        now      <- timeZone `fmap` getCurrentTime
-   
-        History.add myHistoryFile (History.Entry now uri title) >> return ()
-        
+myLoadFinished = History.log myHistoryFile
+-- }}}
+
 -- {{{ Keys
 -- Note that this example is suited for an azerty keyboard.
 myKeys :: KeysList

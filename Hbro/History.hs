@@ -1,23 +1,26 @@
 module Hbro.History (
     Entry(..),
+    log,
     add,
     parseEntry,
     select
 ) where
 
 -- {{{ Imports
---import Hbro.Core
+import Hbro.Core
 import Hbro.Types
 import Hbro.Util
 
 import Control.Exception
 --import Control.Monad.Reader
 
+import Data.Functor
 import Data.List
-import Data.Time.Format
-import Data.Time.LocalTime
+import Data.Time
 
 import Network.URI
+
+import Prelude hiding(log)
 
 --import System.IO.Error
 import System.IO
@@ -38,9 +41,17 @@ dateFormat :: String
 dateFormat = "%F %T"
 -- }}}
 
--- | Add a new entry to history's database
-add :: (RefDirs -> FilePath) -- ^ Path to history file
-    -> Entry                 -- ^ History entry to add
+-- | Log current visited page to history file
+log :: PortableFilePath -> K ()
+log file = withURI $ \uri -> withTitle $ \title -> io $ do
+    timeZone <- utcToLocalTime <$> getCurrentTimeZone
+    now      <- timeZone <$> getCurrentTime
+    
+    add file (Entry now uri title) >> return ()
+
+-- | Add a new entry to history file
+add :: PortableFilePath  -- ^ History file
+    -> Entry             -- ^ History entry to add
     -> IO Bool
 add file newEntry = do
     file'  <- resolve file
@@ -61,9 +72,9 @@ parseEntry' (d:t:u:t') = do
 parseEntry' _ = Nothing
 
 -- | Open a dmenu with all (sorted alphabetically) history entries, and return the user's selection, if any
-select :: (RefDirs -> FilePath) -- ^ Path to history file
-       -> [String]           -- ^ dmenu's commandline options
-       -> IO (Maybe Entry)   -- ^ Selected history entry, if any
+select :: PortableFilePath  -- ^ Path to history file
+       -> [String]          -- ^ dmenu's commandline options
+       -> IO (Maybe Entry)  -- ^ Selected history entry, if any
 select file dmenuOptions = do
     file'  <- resolve file
     result <- try $ readFile file'
