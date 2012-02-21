@@ -17,7 +17,8 @@ labelNotify env = do
     feedbackLabel <- builderGetObject ((mBuilder . mGUI) env)  castToLabel "feedback"
     labelSetMarkupTemporary feedbackLabel "<span foreground=\"green\">Download started</span>" 5000
   
-aria, wget, axel :: URI -> FilePath -> String -> IO ()
-aria uri directory filename = spawn "aria2c" [show uri, "-d", directory, "-o", filename]
-wget uri directory filename = spawn "wget"   [show uri, "-O", directory </> filename]
-axel uri directory filename = spawn "axel"   [show uri, "-o", directory </> filename]
+
+aria, wget, axel :: PortableFilePath -> URI -> String -> IO ()
+aria path' uri filename = resolve path' >>= \destination -> spawn "aria2c" [show uri, "-d", destination, "-o", filename]
+wget path' uri filename = resolve path' >>= \destination -> spawn "wget"   [show uri, "-O", destination </> filename]
+axel path' uri filename = resolve path' >>= \destination -> spawn "axel"   [show uri, "-o", destination </> filename]

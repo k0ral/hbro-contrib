@@ -53,25 +53,23 @@ import System.Glib.Signals
 import System.Process 
 -- }}}
 
--- {{{ Configuration structure
 -- Main function, expected to call launchHbro.
--- You can add custom tasks before & after calling it.
 main :: IO ()
 main = launchHbro myConfig
 
--- A structure containing your configuration settings, overriding
--- fields in the default config. Any you don't override will     
+-- {{{ Configuration structures
+-- Any field you don't override will     
 -- use the defaults defined in Hbro.Types.Config.
 myConfig :: Config
 myConfig = defaultConfig {
-    mSocketDir        = mySocketDirectory,
+--  mSocketDir        = mySocketDirectory,
     mUIFile           = myUIFile,
     mHomePage         = myHomePage,
     mWebSettings      = myWebSettings,
+--  mCommandsList     = myCommandsList,
     mHooks            = myHooks
 }
 
--- Commented fields are using default values
 myHooks = defaultHooks {
 --  mBackForward     = myBackForward,
     mDownload        = myDownloadHook,
@@ -92,18 +90,16 @@ myHooks = defaultHooks {
 -- {{{ Constant parameters
 myHomePage = "https://duckduckgo.com"
 
-mySocketDirectory, myUIFile, myHistoryFile, myBookmarksFile :: RefDirs -> FilePath
-mySocketDirectory             = mTemporary
-myUIFile          directories = (mConfiguration directories) </> "ui.xml"
-myHistoryFile     directories = (mData directories) </> "history"
-myBookmarksFile   directories = (mData directories) </> "bookmarks"
+myUIFile, myHistoryFile, myBookmarksFile, myDownloadDirectory :: PortableFilePath
+myUIFile            directories = (mConfiguration directories) </> "ui.xml"
+myHistoryFile       directories = (mData directories) </> "history"
+myBookmarksFile     directories = (mData directories) </> "bookmarks"
+myDownloadDirectory             = mHome
 -- }}}
 
 -- {{{ Hooks
 myDownloadHook :: URI -> String -> Int -> K ()
-myDownloadHook uri filename _size = io $ do
-    home <- getHomeDirectory 
-    Download.aria uri home filename
+myDownloadHook uri filename _size = io $ Download.aria myDownloadDirectory uri filename
 
 myLoadFinished :: K ()
 myLoadFinished = 
