@@ -1,13 +1,14 @@
 module Hbro.Bookmarks (
     Entry(..),
     add,
+    addCustom,
     select,
     selectTag,
     deleteWithTag
 ) where
 
 -- {{{ Imports
---import Hbro.Core
+import Hbro.Core
 --import Hbro.Gui
 import Hbro.Types hiding(mURI)
 import Hbro.Util
@@ -17,6 +18,7 @@ import Control.Monad hiding(forM_, mapM_)
 
 --import qualified Data.ByteString.Char8 as B
 import Data.Foldable hiding(find, foldr)
+import Data.Functor
 import Data.List
 import Data.Maybe
 
@@ -49,11 +51,15 @@ parseEntry line = return (words line)
 hasTag :: String -> Entry -> Bool
 hasTag tag = isJust . (find $ (==) tag) . mTags
 
--- | Add a new entry to the bookmarks' database (which is a file).
-add :: (RefDirs -> FilePath) -- ^ Bookmarks' database file
-    -> Entry                           -- ^ New bookmarks entry
-    -> IO Bool
-add file newEntry = do
+-- | Add current webpage to bookmarks with given tags
+add :: PortableFilePath -> [String] -> K ()        
+add file tags = withURI $ \uri -> io . void . addCustom file $ Entry uri tags
+
+-- | Add a custom entry to bookmarks
+addCustom :: PortableFilePath   -- ^ Bookmarks' database file
+          -> Entry              -- ^ New bookmarks entry
+          -> IO Bool
+addCustom file newEntry = do
     file'  <- resolve file
     result <- try $ withFile file' AppendMode (`hPutStrLn` show newEntry)
     either (\e -> errorHandler file' e >> return False) (const $ return True) result
@@ -87,8 +93,8 @@ selectTag file dmenuOptions = do
     result <- try $ readFile file'
     file'' <- either (\e -> errorHandler file' e >> return Nothing) (\x -> return $ Just x) result
     
-    let entries = (catMaybes . map parseEntry . lines) `fmap` file''
-    let tags    = (unlines . sort . nub . words . unwords . (foldr (union . mTags) [])) `fmap` entries
+    let entries = (catMaybes . map parseEntry . lines) <$> file''
+    let tags    = (unlines . sort . nub . words . unwords . (foldr (union . mTags) [])) <$> entries
 
     -- Let user select a tag
     tag <- (maybe (return Nothing) (dmenu dmenuOptions) tags)

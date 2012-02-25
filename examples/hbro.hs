@@ -115,18 +115,16 @@ myKeys = defaultKeyBindings ++ [
     ("C-<Right>",     goForwardList ["-l", "10"] >>= mapM_ loadURI),
     ("C-g",           Prompt.read "Google search" [] ((mapM_ loadURI . parseURI . ("https://www.google.com/search?q=" ++)))),
 -- Copy/paste
-    ("C-y",           withURI $ io . toClipboard . show),
-    ("M-y",           withTitle $ io . toClipboard),
+    ("C-y",           withURI       $ io . toClipboard . show),
+    ("M-y",           withTitle     $ io . toClipboard),
     ("C-p",           withClipboard $ mapM_ loadURI . parseURIReference),
     ("M-p",           withClipboard $ \uri -> io $ spawn "hbro" ["-u", uri]),
 -- Bookmarks
-    ("C-d",           Prompt.read "Bookmark with tags:" [] $ \tags -> do 
-        withURI $ (\uri -> (io . void . Bookmarks.add myBookmarksFile . Bookmarks.Entry uri . words) tags)
-    ),
-    ("C-D",           Prompt.read "Bookmark all instances with tag:" [] $ \tags -> 
-        (map parseURI `fmap` sendCommandToAll "GET_URI")
-        >>= mapM (mapM_ $ \uri -> (io . Bookmarks.add myBookmarksFile) $ Bookmarks.Entry uri (words tags)) 
-        >> (withURI $ \uri -> (io . void . Bookmarks.add myBookmarksFile) $ Bookmarks.Entry uri (words tags)) 
+    ("C-d",           Prompt.read "Bookmark with tags:" [] $ Bookmarks.add myBookmarksFile . words),
+    ("C-D",           Prompt.read "Bookmark all instances with tag:" [] $ \tags -> do
+        (map parseURI <$> sendCommandToAll "GET_URI")
+        >>= mapM (mapM_ $ \uri -> (io . Bookmarks.addCustom myBookmarksFile) $ Bookmarks.Entry uri (words tags)) 
+        >> (withURI $ \uri -> (io . void . Bookmarks.addCustom myBookmarksFile) $ Bookmarks.Entry uri (words tags)) 
     ),
     ("M-d",           io $ Bookmarks.deleteWithTag myBookmarksFile ["-l", "10"]),
     ("C-l",           io (Bookmarks.select        myBookmarksFile ["-l", "10"]) >>= mapM_ (mapM_ loadURI . parseURIReference)),
