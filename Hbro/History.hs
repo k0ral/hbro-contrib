@@ -83,12 +83,3 @@ select file dmenuOptions = do
     >>= (return . ((return . unlines . reverse . sort . nub . lines) =<<))
     >>= (maybe (return Nothing) (dmenu dmenuOptions))
     >>= (return . (parseEntry =<<))
-
-
-reformat :: String -> String
-reformat line = 
-  let
-        _date:_time:uri:title = words line 
-  in 
-        unwords $ [uri] ++ title
-    

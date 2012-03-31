@@ -3,7 +3,6 @@ module Main where
 
 -- {{{ Imports
 import qualified Hbro.Bookmarks as Bookmarks
-import qualified Hbro.BookmarksQueue as Queue
 import Hbro.Clipboard
 import Hbro.Config
 import Hbro.Core
@@ -113,7 +112,7 @@ myKeys = defaultKeyBindings ++ [
 -- Browse
     ("C-<Left>",      goBackList    ["-l", "10"] >>= mapM_ loadURI),
     ("C-<Right>",     goForwardList ["-l", "10"] >>= mapM_ loadURI),
-    ("C-g",           Prompt.read "Google search" [] ((mapM_ loadURI . parseURI . ("https://www.google.com/search?q=" ++)))),
+    ("C-g",           Prompt.read "DuckDuckGo search" [] ((mapM_ loadURI . parseURI . ("https://duckduckgo.com/html?q=" ++)))),
 -- Copy/paste
     ("C-y",           withURI       $ io . toClipboard . show),
     ("M-y",           withTitle     $ io . toClipboard),
@@ -127,8 +126,8 @@ myKeys = defaultKeyBindings ++ [
         >> (withURI $ \uri -> (io . void . Bookmarks.addCustom myBookmarksFile) $ Bookmarks.Entry uri (words tags)) 
     ),
     ("M-d",           io $ Bookmarks.deleteWithTag myBookmarksFile ["-l", "10"]),
-    ("C-l",           io (Bookmarks.select        myBookmarksFile ["-l", "10"]) >>= mapM_ (mapM_ loadURI . parseURIReference)),
-    ("C-L",           io (Bookmarks.selectTag     myBookmarksFile ["-l", "10"]) >>= mapM_ (\uris -> mapM (\uri -> io $ spawn "hbro" ["-u", (show uri)]) uris >> return ())),
+    ("C-l",           io (Bookmarks.select        myBookmarksFile ["-l", "10"]) >>= mapM_ loadURI),
+    ("C-L",           io (Bookmarks.selectTag     myBookmarksFile ["-l", "10"]) >>= mapM_ (\uris -> mapM (\uri -> io . void $ spawn "hbro" ["-u", (show uri)]) uris)),
 --    ("C-q"),           webViewGetUri webView >>= maybe (return ()) (Queue.append),
 --    ("M-q"),           \b -> do
 --        uri <- Queue.popFront
@@ -150,7 +149,7 @@ myWebSettings = [
     --webSettingsCursiveFontFamily              := "serif",
     --webSettingsDefaultFontFamily              := "sans-serif",
     --webSettingsFantasyFontFamily              := ,
-    --webSettingsMonospaceFontFamily            := "monospace",
+    webSettingsMonospaceFontFamily              := "consolas",
     --webSettingsSansFontFamily                 := "sans-serif",
     --webSettingsSerifFontFamily                := "serif",
     --webSettingsDefaultFontSize                := ,
@@ -161,12 +160,12 @@ myWebSettings = [
     --webSettingsAutoShrinkImages               := True,
     --webSettingsDefaultEncoding                := "iso-8859-1",
     --webSettingsEditingBehavior                := EditingBehaviorWindows,
-    --webSettingsEnableCaretBrowsing              := False,
+    --webSettingsEnableCaretBrowsing            := False,
     webSettingsEnableDeveloperExtras            := True,
     --webSettingsEnableHtml5Database              := True,
     --webSettingsEnableHtml5LocalStorage          := True,
     --webSettingsEnableOfflineWebApplicationCache := True,
-    webSettingsEnablePlugins                    := True,
+    webSettingsEnablePlugins                    := False,
     webSettingsEnablePrivateBrowsing            := False, -- Experimental
     webSettingsEnableScripts                    := False,
     --webSettingsEnableSpellChecking              := False,

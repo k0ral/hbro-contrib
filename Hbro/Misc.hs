@@ -7,14 +7,14 @@ import Hbro.Util
 
 import Data.Maybe
 
-import Graphics.UI.Gtk.Display.Label
+-- import Graphics.UI.Gtk.Display.Label
 import Graphics.UI.Gtk.WebKit.WebBackForwardList
 import Graphics.UI.Gtk.WebKit.WebHistoryItem
 import Graphics.UI.Gtk.WebKit.WebView
 
 import Network.URI
 
-import System.IO
+-- import System.IO
 -- }}}
 
 

@@ -2,23 +2,23 @@ module Hbro.Session where
 
 -- {{{ Imports
 --import Hbro.Types
-import Hbro.Util
+-- import Hbro.Util
 
-import Data.Foldable
-import qualified Data.Text as T
-import qualified Data.Text.IO as T
+-- import Data.Foldable
+-- import qualified Data.Text as T
+-- import qualified Data.Text.IO as T
 
-import Graphics.UI.Gtk.General.General
-import Graphics.UI.Gtk.WebKit.WebView hiding(webViewGetUri)
+-- import Graphics.UI.Gtk.General.General
+-- import Graphics.UI.Gtk.WebKit.WebView hiding(webViewGetUri)
 
-import Prelude hiding(mapM_)
+-- import Prelude hiding(mapM_)
 
-import System.Directory
-import System.Environment
-import System.Glib.Signals
-import System.IO
-import System.Posix.Process
-import System.Process 
+-- import System.Directory
+-- import System.Environment
+-- import System.Glib.Signals
+-- import System.IO
+-- import System.Posix.Process
+-- import System.Process 
 -- }}}
 
 --setupSession :: WebView -> String -> IO ()

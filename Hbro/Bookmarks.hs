@@ -21,6 +21,10 @@ import Data.Foldable hiding(find, foldr)
 import Data.Functor
 import Data.List
 import Data.Maybe
+-- import Data.Random.Extras
+-- import Data.Random.RVar
+-- import Data.Random.Source.DevRandom
+
 
 import Network.URI
 
@@ -65,9 +69,9 @@ addCustom file newEntry = do
     either (\e -> errorHandler file' e >> return False) (const $ return True) result
           
 -- | Open a dmenu with all (sorted alphabetically) bookmarks entries, and return the user's selection, if any.
-select :: (RefDirs -> FilePath)   -- ^ Bookmarks' database file
-       -> [String]   -- ^ dmenu's commandline options
-       -> IO (Maybe String)
+select :: PortableFilePath -- ^ Bookmarks' database file
+       -> [String]         -- ^ dmenu's commandline options
+       -> IO (Maybe URI)
 select file dmenuOptions = do
     file'  <- resolve file
     result <- try $ readFile file' 
@@ -75,8 +79,8 @@ select file dmenuOptions = do
     either (\e -> errorHandler file' e >> return Nothing) (\x -> return $ Just x) result
     >>= (return . ((return . unlines . sort . nub . (map reformat) . lines) =<<))
     >>= (maybe (return Nothing) (dmenu dmenuOptions))
-    >>= (return . ((return . last. words) =<<))
-  
+    >>= (return . ((parseURIReference . last . words) =<<))
+
 reformat :: String -> String
 reformat line = unwords $ tags' ++ [uri]
   where
@@ -84,11 +88,11 @@ reformat line = unwords $ tags' ++ [uri]
     tags'    = sort $ map (\tag -> '[':(tag ++ "]")) tags
 
 -- | Open a dmenu with all (sorted alphabetically) bookmarks tags, and return the user's selection, if any.
-selectTag :: (RefDirs -> FilePath)          -- ^ Bookmarks' database file
+selectTag :: PortableFilePath  -- ^ Bookmarks' database file
           -> [String]          -- ^ dmenu's commandline options
           -> IO (Maybe [URI])
 selectTag file dmenuOptions = do
-    -- Read bookmarks file
+-- Read bookmarks file
     file'  <- resolve file
     result <- try $ readFile file'
     file'' <- either (\e -> errorHandler file' e >> return Nothing) (\x -> return $ Just x) result
@@ -96,14 +100,40 @@ selectTag file dmenuOptions = do
     let entries = (catMaybes . map parseEntry . lines) <$> file''
     let tags    = (unlines . sort . nub . words . unwords . (foldr (union . mTags) [])) <$> entries
 
-    -- Let user select a tag
+-- Let user select a tag
     tag <- (maybe (return Nothing) (dmenu dmenuOptions) tags)
     return $ (return . (map mURI) . (\t -> filter (hasTag t) (maybe [] id entries))) =<< tag
 
+-- |
+--popOldest :: PortableFilePath -> String -> IO (Maybe URI)
+--popOldest file tags = do
+  
+-- | 
+--pop
+
+-- | Return a random Bookmark entry with a given tag, while removing it from bookmarks.
+-- popRandom :: PortableFilePath
+--           -> String  
+--           -> IO (Maybe URI)
+-- popRandom file tags = do
+--     file'  <- resolve file
+--     result <- try . readFile $ file'
+--     file'' <- either (\e -> errorHandler file' e >> return Nothing) (\x -> return $ Just x) result
+    
+--     forM_ file'' $ \f -> do
+--         let selection = choiceExtract . lines $ f
+--         forM_ selection $ \s -> do 
+--             (newLines, value) <- runRVar s DevURandom
+            
+--             renameFile file' (file' ++ ".old")
+--             writeFile file' . unlines . nub $ newLines
+
+--             return . parseURIReference . last . words $ value
+
 
 -- | Remove all bookmarks entries matching the given tag.
-deleteWithTag :: (RefDirs -> FilePath)   -- ^ Bookmarks' database file
-              -> [String]   -- ^ dmenu's commandline options
+deleteWithTag :: PortableFilePath  -- ^ Bookmarks' database file
+              -> [String]          -- ^ dmenu's commandline options
               -> IO ()
 deleteWithTag file dmenuOptions = do
     file'  <- resolve file
