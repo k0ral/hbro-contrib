@@ -27,7 +27,7 @@ Library
         filepath,
         glib,
         gtk,
-        hbro >= 0.8.0.0,
+        hbro >= 0.9.0.0,
         network,
         old-locale,
         pango,
