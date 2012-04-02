@@ -112,7 +112,7 @@ myKeys = defaultKeyBindings ++ [
 -- Browse
     ("C-<Left>",      goBackList    ["-l", "10"] >>= mapM_ loadURI),
     ("C-<Right>",     goForwardList ["-l", "10"] >>= mapM_ loadURI),
-    ("C-g",           Prompt.read "DuckDuckGo search" [] ((mapM_ loadURI . parseURI . ("https://duckduckgo.com/html?q=" ++)))),
+    ("C-g",           Prompt.read "DuckDuckGo search" [] ((mapM_ loadURI . parseURIReference . ("https://duckduckgo.com/html?q=" ++)))),
 -- Copy/paste
     ("C-y",           withURI       $ io . toClipboard . show),
     ("M-y",           withTitle     $ io . toClipboard),

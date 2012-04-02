@@ -108,9 +108,6 @@ selectTag file dmenuOptions = do
 --popOldest :: PortableFilePath -> String -> IO (Maybe URI)
 --popOldest file tags = do
   
--- | 
---pop
-
 -- | Return a random Bookmark entry with a given tag, while removing it from bookmarks.
 -- popRandom :: PortableFilePath
 --           -> String  
