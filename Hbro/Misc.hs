@@ -5,6 +5,7 @@ import Hbro.Core
 import Hbro.Types
 import Hbro.Util
 
+import Data.Functor
 import Data.Maybe
 
 -- import Graphics.UI.Gtk.Display.Label
@@ -18,37 +19,6 @@ import Network.URI
 -- }}}
 
 
--- | Same as goBack function from Hbro.Core,
--- but with feedback in case of failure.
---goForward :: WebView -> IO ()
---goForward webView = do
---    result        <- webViewCanGoForward webView
---    feedbackLabel <- builderGetObject builder castToLabel "feedback"
--- 
---    case result of
---        True -> webViewGoForward webView
---        _    -> labelSetMarkupTemporary feedbackLabel "<span foreground=\"red\">Unable to go forward !</span>" 5000 >> return ()
--- 
---  where
---    webView = mWebView $ mGUI browser
---    builder = mBuilder $ mGUI browser
--- 
----- | Same as goBack function from Hbro.Core,
----- but with feedback in case of failure.
---goBack :: Browser -> IO ()
---goBack browser = do
---    result        <- webViewCanGoBack webView
---    feedbackLabel <- builderGetObject builder castToLabel "feedback"
--- 
---    case result of
---        True -> webViewGoBack webView
---        _    -> labelSetMarkupTemporary feedbackLabel "<span foreground=\"red\">Unable to go back !</span>" 5000 >> return ()
--- 
---  where
---    webView = mWebView $ mGUI browser
---    builder = mBuilder $ mGUI browser
-
-
 -- | List preceding URIs in dmenu and let the user select which one to load.
 goBackList :: [String] -> K (Maybe URI)
 goBackList dmenuOptions = do
@@ -57,7 +27,7 @@ goBackList dmenuOptions = do
     backList       <- io $ webBackForwardListGetBackListWithLimit list n
     dmenuList      <- io $ mapM itemToEntry backList
     
-    (>>= (parseURIReference . head . words)) `fmap` (io . dmenu dmenuOptions . unlines . catMaybes) dmenuList
+    (>>= (parseURIReference . head . words)) <$> (io . dmenu dmenuOptions . unlines . catMaybes) dmenuList
     
 
 -- | List succeeding URIs in dmenu and let the user select which one to load.
