@@ -157,7 +157,7 @@ defaultURIColors = URIColors {
     mHost     = Color 50000 50000 50000,
     mPort     = Color 65535     0     0,
     mUser     = Color     0 65535     0,
-    mPath     = Color     0 65535 65535,
+    mPath     = Color 20000 20000 20000,
     mQuery    = Color 20000 20000 20000,
     mFragment = Color 10000 10000 65535
 }

@@ -3,12 +3,13 @@ module Main where
 
 -- {{{ Imports
 import qualified Hbro.Bookmarks as Bookmarks
+import Hbro.Boot
 import Hbro.Clipboard
 import Hbro.Config
 import Hbro.Core
 import qualified Hbro.Download as Download
 import Hbro.Gui
-import Hbro.Hbro
+--import Hbro.Hbro
 import qualified Hbro.History as History
 import Hbro.Keys
 import Hbro.Misc
@@ -55,7 +56,7 @@ import System.Process
 
 -- Main function, expected to call launchHbro.
 main :: IO ()
-main = launchHbro myConfig
+main = hbro myConfig
 
 -- {{{ Configuration structures
 -- Any field you don't override will     
@@ -75,7 +76,7 @@ myHooks = defaultHooks {
     mDownload        = myDownloadHook,
 --  mFormResubmitted = myFormResubmitted,
 --  mFormSubmitted   = myFormSubmitted,
-    mKeyPressed      = manageSequentialKeys (defaultKeyHandler myKeys) >=> void . (printInLabel "keys"),
+    mKeyPressed      = emacsKeyHandler myKeys ["M-x"] >=> void . (printInLabel "keys"),
 --  mLinkClicked     = myLinkClicked,
     mLoadFinished    = myLoadFinished,
 --  mMIMEDisposition = myMIMEDisposition,
@@ -191,23 +192,23 @@ myWebSettings = [
 -- {{{ Setup
 myStartUp :: K ()
 myStartUp = do
-    -- Scroll position in status bar
-        setupScrollWidget =<< getObject castToLabel "scroll"
-    
-    -- Zoom level in status bar
-        setupZoomWidget =<< getObject castToLabel "zoom"
-                
-    -- Load progress in status bar
-        setupProgressWidget =<< getObject castToLabel "progress"
-        
-    -- Current URI in status bar
-        setupURIWidget defaultURIColors defaultSecureURIColors =<< getObject castToLabel "uri"
-        
-    -- Session manager
-        --setupSession browser
-            
-    -- Favicon
-        --_ <- on webView iconLoaded $ \uri -> do something
+-- Scroll position in status bar
+    setupScrollWidget =<< getObject castToLabel "scroll"
 
-        return ()
+-- Zoom level in status bar
+    setupZoomWidget =<< getObject castToLabel "zoom"
+            
+-- Load progress in status bar
+    setupProgressWidget =<< getObject castToLabel "progress"
+    
+-- Current URI in status bar
+    setupURIWidget defaultURIColors defaultSecureURIColors =<< getObject castToLabel "uri"
+    
+-- Session manager
+    --setupSession browser
+        
+-- Favicon
+    --_ <- on webView iconLoaded $ \uri -> do something
+
+    return ()
 -- }}}
