@@ -1,4 +1,4 @@
-module Hbro.WebSettings where
+module Hbro.Settings where
 
 -- {{{ Import
 import Graphics.UI.Gtk.WebKit.WebSettings

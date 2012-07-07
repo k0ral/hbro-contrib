@@ -15,12 +15,14 @@ import Hbro.Keys
 import Hbro.Misc
 import qualified Hbro.Prompt as Prompt
 import Hbro.Session
+import Hbro.Settings
 import Hbro.Socket
 import Hbro.StatusBar
 import Hbro.Types
 import Hbro.Util
-import Hbro.WebSettings
+import qualified Hbro.WebSettings as WS
 
+import Control.Conditional
 import Control.Monad hiding(forM_, mapM_)
 
 import Data.Foldable
@@ -135,10 +137,12 @@ myKeys = defaultKeyBindings ++ [
 --        loadURI uri b),
 
 -- History
-    ("C-h",           io (History.select myHistoryFile ["-l", "10"]) >>= mapM_ loadURI . (return . (History.mURI) =<<))
+    ("C-h",           io (History.select myHistoryFile ["-l", "10"]) >>= mapM_ loadURI . (return . (History.mURI) =<<)),
     
 -- Session
     --("M-l"),           loadFromSession ["-l", "10"])
+-- Settings
+    ("C-j",           WS.toggle webSettingsEnableScripts >>= ((notify 5000 "Javascript disabled") ?? (notify 5000 "Javascript enabled")))
     ]
 -- }}}
 
