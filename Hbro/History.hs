@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+-- | Designed to be imported as @qualified@.
 module Hbro.History (
     Entry(..),
     log,
@@ -7,25 +9,26 @@ module Hbro.History (
 ) where
 
 -- {{{ Imports
-import Hbro.Core
-import Hbro.Types
-import Hbro.Util
+import Hbro
+import Hbro.Misc
 
 import Control.Exception
---import Control.Monad.Reader
+import Control.Monad.Error
+-- import Control.Monad.IO.Class
+import Control.Monad.Reader
 
 import Data.Functor
 import Data.List
 import Data.Time
 
-import Network.URI
+import Network.URI (URI)
 
 import Prelude hiding(log)
 
 --import System.IO.Error
 import System.IO
 import System.Locale
--- }}} 
+-- }}}
 
 -- {{{ Type definitions
 data Entry = Entry {
@@ -42,44 +45,44 @@ dateFormat = "%F %T"
 -- }}}
 
 -- | Log current visited page to history file
-log :: PortableFilePath -> K ()
-log file = withURI $ \uri -> withTitle $ \title -> io $ do
-    timeZone <- utcToLocalTime <$> getCurrentTimeZone
-    now      <- timeZone <$> getCurrentTime
-    
-    add file (Entry now uri title) >> return ()
+log :: (MonadIO m, MonadReader r m, HasWebView r, MonadError HError m) => IO FilePath -> m ()
+log file = do
+    uri      <- getURI
+    title    <- getTitle
+    timeZone <- io $ utcToLocalTime <$> getCurrentTimeZone
+    now      <- io $ timeZone <$> getCurrentTime
+
+    add file (Entry now uri title)
 
 -- | Add a new entry to history file
-add :: PortableFilePath  -- ^ History file
-    -> Entry             -- ^ History entry to add
-    -> IO Bool
+add :: (MonadIO m, MonadError HError m)
+    => IO FilePath  -- ^ History file
+    -> Entry        -- ^ History entry to add
+    -> m ()
 add file newEntry = do
-    file'  <- resolve file
-    result <- try $ withFile file' AppendMode (`hPutStrLn` show newEntry)
-    either (\e -> errorHandler file' e >> return False) (const $ return True) result    
+    file'  <- io file
+    either (throwError . IOE) return =<< (io . try $ withFile file' AppendMode (`hPutStrLn` show newEntry))
+    --either (\e -> errorHandler file' e >> return False) (const $ return True) result
 
 -- | Try to parse a String into a history Entry.
-parseEntry :: String -> Maybe Entry
-parseEntry [] = Nothing
+parseEntry :: (MonadError HError m) => String -> m Entry
+parseEntry [] = throwError $ OtherError "While parsing history entry: empty input."
 parseEntry line = (parseEntry' . words) line
 
-parseEntry' :: [String] -> Maybe Entry
+parseEntry' :: (MonadError HError m) => [String] -> m Entry
 parseEntry' (d:t:u:t') = do
-    time <- parseTime defaultTimeLocale dateFormat (unwords [d, t])
+    time <- maybe (throwError $ OtherError "While parsing history entry: invalid date.") return $ parseTime defaultTimeLocale dateFormat (unwords [d, t])
     uri  <- parseURI u
-    
+
     return $ Entry time uri (unwords t')
-parseEntry' _ = Nothing
+parseEntry' _ = throwError $ OtherError "While parsing history entry: invalid format."
 
 -- | Open a dmenu with all (sorted alphabetically) history entries, and return the user's selection, if any
-select :: PortableFilePath  -- ^ Path to history file
+select :: (Functor m, MonadIO m, MonadError HError m)
+       => IO FilePath       -- ^ Path to history file
        -> [String]          -- ^ dmenu's commandline options
-       -> IO (Maybe Entry)  -- ^ Selected history entry, if any
+       -> m Entry           -- ^ Selected history entry, if any
 select file dmenuOptions = do
-    file'  <- resolve file
-    result <- try $ readFile file'
-        
-    either (\e -> errorHandler file' e >> return Nothing) (return . return) result
-    >>= (return . ((return . unlines . reverse . sort . nub . lines) =<<))
-    >>= (maybe (return Nothing) (dmenu dmenuOptions))
-    >>= (return . (parseEntry =<<))
+
+    --either (\e -> errorHandler file' e >> return Nothing) (return . return) result
+    parseEntry =<< dmenu dmenuOptions . unlines . reverse . sort . nub . lines =<< either (throwError . IOE) return =<< (io . try $ readFile =<< file)

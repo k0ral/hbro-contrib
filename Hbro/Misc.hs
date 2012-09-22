@@ -1,11 +1,15 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Hbro.Misc where
 
 -- {{{ Imports
-import Hbro.Core
-import Hbro.Types
-import Hbro.Util
+import Hbro
 
-import Data.Functor
+import Control.Exception
+import Control.Monad.Error
+-- import Control.Monad.IO.Class
+import Control.Monad.Reader
+
+-- import Data.Functor
 import Data.Maybe
 
 -- import Graphics.UI.Gtk.Display.Label
@@ -13,32 +17,49 @@ import Graphics.UI.Gtk.WebKit.WebBackForwardList
 import Graphics.UI.Gtk.WebKit.WebHistoryItem
 import Graphics.UI.Gtk.WebKit.WebView
 
-import Network.URI
+import Network.URI (URI)
 
--- import System.IO
+import System.IO
+import System.Process
 -- }}}
 
 
+-- | Open dmenu with given input and return selected entry.
+dmenu :: (Functor m, MonadIO m, MonadError HError m)
+      => [String]    -- ^ dmenu's commandline options
+      -> String      -- ^ dmenu's input
+      -> m String    -- ^ Selected entry
+dmenu options input = do
+    (in_, out, err, pid) <- io $ runInteractiveProcess "dmenu" options Nothing Nothing
+    io $ hPutStr in_ input
+    io $ hClose in_
+
+    output <- either (throwError . IOE) return =<< (io . try $ hGetLine out)
+
+    io (hClose out) >> io (hClose err) >> (void . io $ waitForProcess pid)
+    return output
+
+
 -- | List preceding URIs in dmenu and let the user select which one to load.
-goBackList :: [String] -> K (Maybe URI)
+goBackList :: (Functor m, MonadIO m, MonadReader r m, HasWebView r, MonadError HError m) => [String] -> m URI
 goBackList dmenuOptions = do
-    list           <- with (mWebView . mGUI) webViewGetBackForwardList
+    list           <- io . webViewGetBackForwardList =<< asks _webview
     n              <- io $ webBackForwardListGetBackLength list
     backList       <- io $ webBackForwardListGetBackListWithLimit list n
     dmenuList      <- io $ mapM itemToEntry backList
-    
-    (>>= (parseURIReference . head . words)) <$> (io . dmenu dmenuOptions . unlines . catMaybes) dmenuList
-    
+
+    parseURIReference . head . words =<< (dmenu dmenuOptions . unlines . catMaybes) dmenuList
+
 
 -- | List succeeding URIs in dmenu and let the user select which one to load.
-goForwardList :: [String] -> K (Maybe URI)
+goForwardList :: (Functor m, MonadIO m, MonadReader r m, HasWebView r, MonadError HError m) => [String] -> m URI
 goForwardList dmenuOptions = do
-    list        <- with (mWebView . mGUI) webViewGetBackForwardList
+    list        <- io . webViewGetBackForwardList =<< asks _webview
     n           <- io $ webBackForwardListGetForwardLength list
     forwardList <- io $ webBackForwardListGetForwardListWithLimit list n
     dmenuList   <- io $ mapM itemToEntry forwardList
-    
-    (>>= (parseURIReference . head . words)) `fmap` (io . dmenu dmenuOptions . unlines . catMaybes) dmenuList
+
+    parseURIReference . head . words =<< (dmenu dmenuOptions . unlines . catMaybes) dmenuList
 
 
 itemToEntry :: WebHistoryItem -> IO (Maybe String)
