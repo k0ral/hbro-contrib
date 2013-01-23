@@ -3,11 +3,13 @@ module Hbro.Misc where
 
 -- {{{ Imports
 import Hbro
+-- import Hbro.Error
+import Hbro.Gui
+import Hbro.Network
 
 import Control.Exception
+import Control.Monad.Base
 import Control.Monad.Error
--- import Control.Monad.IO.Class
-import Control.Monad.Reader
 
 -- import Data.Functor
 import Data.Maybe
@@ -25,7 +27,7 @@ import System.Process
 
 
 -- | Open dmenu with given input and return selected entry.
-dmenu :: (Functor m, MonadIO m, MonadError HError m)
+dmenu :: (Functor m, MonadBase IO m, MonadError HError m)
       => [String]    -- ^ dmenu's commandline options
       -> String      -- ^ dmenu's input
       -> m String    -- ^ Selected entry
@@ -41,9 +43,9 @@ dmenu options input = do
 
 
 -- | List preceding URIs in dmenu and let the user select which one to load.
-goBackList :: (Functor m, MonadIO m, MonadReader r m, HasWebView r, MonadError HError m) => [String] -> m URI
+goBackList :: (Functor m, MonadBase IO m, GUIReader n m, MonadError HError m) => [String] -> m URI
 goBackList dmenuOptions = do
-    list           <- io . webViewGetBackForwardList =<< asks _webview
+    list           <- io . webViewGetBackForwardList =<< readGUI webView
     n              <- io $ webBackForwardListGetBackLength list
     backList       <- io $ webBackForwardListGetBackListWithLimit list n
     dmenuList      <- io $ mapM itemToEntry backList
@@ -52,9 +54,9 @@ goBackList dmenuOptions = do
 
 
 -- | List succeeding URIs in dmenu and let the user select which one to load.
-goForwardList :: (Functor m, MonadIO m, MonadReader r m, HasWebView r, MonadError HError m) => [String] -> m URI
+goForwardList :: (Functor m, MonadBase IO m, GUIReader n m, MonadError HError m) => [String] -> m URI
 goForwardList dmenuOptions = do
-    list        <- io . webViewGetBackForwardList =<< asks _webview
+    list        <- io . webViewGetBackForwardList =<< readGUI webView
     n           <- io $ webBackForwardListGetForwardLength list
     forwardList <- io $ webBackForwardListGetForwardListWithLimit list n
     dmenuList   <- io $ mapM itemToEntry forwardList

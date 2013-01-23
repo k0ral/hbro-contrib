@@ -9,13 +9,15 @@ module Hbro.History (
 ) where
 
 -- {{{ Imports
-import Hbro
+import Hbro hiding(log)
+-- import Hbro.Error
+import Hbro.Gui
 import Hbro.Misc
+import Hbro.Network
 
 import Control.Exception
+import Control.Monad.Base
 import Control.Monad.Error
--- import Control.Monad.IO.Class
-import Control.Monad.Reader
 
 import Data.Functor
 import Data.List
@@ -33,7 +35,7 @@ import System.Locale
 -- {{{ Type definitions
 data Entry = Entry {
     mTime  :: LocalTime,
-    mURI   :: URI, 
+    mURI   :: URI,
     mTitle :: String
 }
 
@@ -45,7 +47,7 @@ dateFormat = "%F %T"
 -- }}}
 
 -- | Log current visited page to history file
-log :: (MonadIO m, MonadReader r m, HasWebView r, MonadError HError m) => IO FilePath -> m ()
+log :: (MonadBase IO m, ConfigReader n m, GUIReader n m, MonadError HError m) => FilePath -> m ()
 log file = do
     uri      <- getURI
     title    <- getTitle
@@ -55,13 +57,13 @@ log file = do
     add file (Entry now uri title)
 
 -- | Add a new entry to history file
-add :: (MonadIO m, MonadError HError m)
-    => IO FilePath  -- ^ History file
+add :: (MonadBase IO m, ConfigReader n m, MonadError HError m)
+    => FilePath     -- ^ History file
     -> Entry        -- ^ History entry to add
     -> m ()
 add file newEntry = do
-    file'  <- io file
-    either (throwError . IOE) return =<< (io . try $ withFile file' AppendMode (`hPutStrLn` show newEntry))
+    logV $ "Adding new history entry <" ++ show (mURI newEntry) ++ ">"
+    either (throwError . IOE) return =<< (io . try $ withFile file AppendMode (`hPutStrLn` show newEntry))
     --either (\e -> errorHandler file' e >> return False) (const $ return True) result
 
 -- | Try to parse a String into a history Entry.
@@ -78,11 +80,10 @@ parseEntry' (d:t:u:t') = do
 parseEntry' _ = throwError $ OtherError "While parsing history entry: invalid format."
 
 -- | Open a dmenu with all (sorted alphabetically) history entries, and return the user's selection, if any
-select :: (Functor m, MonadIO m, MonadError HError m)
-       => IO FilePath       -- ^ Path to history file
+select :: (Functor m, MonadBase IO m, MonadError HError m)
+       => FilePath          -- ^ Path to history file
        -> [String]          -- ^ dmenu's commandline options
        -> m Entry           -- ^ Selected history entry, if any
 select file dmenuOptions = do
-
     --either (\e -> errorHandler file' e >> return Nothing) (return . return) result
-    parseEntry =<< dmenu dmenuOptions . unlines . reverse . sort . nub . lines =<< either (throwError . IOE) return =<< (io . try $ readFile =<< file)
+    parseEntry =<< dmenu dmenuOptions . unlines . reverse . sort . nub . lines =<< either (throwError . IOE) return =<< (io . try $ readFile file)

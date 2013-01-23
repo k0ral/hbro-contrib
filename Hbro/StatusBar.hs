@@ -1,15 +1,15 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Hbro.StatusBar where
 
 -- {{{ Imports
--- import Hbro.Core
---import Hbro.Keys
+import Hbro.Config
+import Hbro.Keys as Key
 import Hbro.Gui
-import Hbro.Types
-import Hbro.Util 
+import Hbro.Util
 
 import Control.Monad hiding(forM_, mapM_)
-import Control.Monad.IO.Class
-import Control.Monad.Reader hiding(forM_, mapM_)
+import Control.Monad.Base
+-- import Control.Monad.Reader hiding(forM_, mapM_)
 
 import Data.Foldable
 import Data.List
@@ -32,104 +32,93 @@ import System.Glib.Signals
 -- }}}
 
 
--- notify :: Environment -> String -> Color -> IO ()
--- notify env text color = do
---     widget <- builderGetObject ((_builder . _UI) env) castToLabel "feedback"
---     labelSetAttributes widget [Attrforeground{ paStart = 0, paEnd = -1, paColor = color }]
---     labelSetMarkupTemporary widget text 5000
-
-
 -- | Write current scroll position in the given Label.
-setupScrollWidget :: (MonadIO m, MonadReader r m, HasScrollWindow r) => Label -> m ()
+setupScrollWidget :: (MonadBase IO m, GUIReader n m) => Label -> m ()
 setupScrollWidget widget = do
-    adjustment <- io . scrolledWindowGetVAdjustment =<< asks _scrollwindow
+    adjustment <- io . scrolledWindowGetVAdjustment =<< readGUI scrollWindow
     io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 32767 32767 32767}]
-    
-    _ <- io $ onValueChanged adjustment $ do
+
+    io . void . onValueChanged adjustment $ do
         current <- adjustmentGetValue    adjustment
         lower   <- adjustmentGetLower    adjustment
         upper   <- adjustmentGetUpper    adjustment
         page    <- adjustmentGetPageSize adjustment
-        
+
         case upper-lower-page of
             0 -> labelSetText widget "ALL"
             x -> labelSetText widget $ show (round $ current/x*100) ++ "%"
-    
+
     io $ labelSetText widget "0%"
 
--- | /!\ Doesn't work for now.
+-- | /!\\ Doesn't work for now.
 -- Write current zoom level in the given Label.
-setupZoomWidget :: (MonadIO m, MonadReader r m, HasWebView r) => Label -> m ()
+setupZoomWidget :: (MonadBase IO m, GUIReader n m) => Label -> m ()
 setupZoomWidget widget = do
-    io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 65535}] 
-    asks _webview >>= io . webViewGetZoomLevel >>= io . labelSetMarkup widget . escapeMarkup . show 
-    
--- | 
-printInLabel :: (MonadIO m, MonadReader r m, HasGUI r) => String -> (String, Bool) -> m (String, Bool)
-printInLabel label (keystrokes, match) = do  
-    widget <- getObject castToLabel label
-    io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 0}]
-    io $ case match of
-        True -> labelSetText widget []
-        _    -> labelSetText widget keystrokes
-          
-    return (keystrokes, match)
+    io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 65535}]
+    readGUI webView >>= io . webViewGetZoomLevel >>= io . labelSetMarkup widget . escapeMarkup . show
 
--- | Write current load progress in the given Label.
-setupProgressWidget :: (MonadIO m, MonadReader r m, HasWebView r) => Label -> m ()
+-- | Write current keystrokes state in the given 'Label'
+setupKeyStrokesWidget :: (MonadBase IO m, ConfigWriter m m, GUIReader m m) => Label -> m ()
+setupKeyStrokesWidget widget = do
+    io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 0}]
+
+    writeConfig onKeyStroke $ io . labelSetText widget . intercalate " " . map Key.serialize
+
+-- | Write current load progress in the given 'Label'.
+setupProgressWidget :: (MonadBase IO m, GUIReader n m) => Label -> m ()
 setupProgressWidget widget = do
-    webView <- asks _webview
+    wv <- readGUI webView
 -- Load started
-    _ <- io $ on webView loadStarted $ \_ -> do
+    io . void . on wv loadStarted $ \_ -> do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 0 0}]
         labelSetText widget "0%"
--- Progress changed    
-    _ <- io $ on webView progressChanged $ \progress' -> do
+-- Progress changed
+    io . void . on wv progressChanged $ \progress' -> do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 0}]
         labelSetText widget $ show progress' ++ "%"
 -- Load finished
-    _ <- io $ on webView loadFinished $ \_ -> do
+    io . void . on wv loadFinished $ \_ -> do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 0 65535 0}]
         labelSetText widget "100%"
 -- Error
-    _ <- io $ on webView loadError $ \_ _ _ -> do
+    io . void . on wv loadError $ \_ _ _ -> do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 0 0}]
         labelSetText widget "ERROR"
         return False
-    
+
     return ()
 
 
 -- | Write current URI, or the destination of a hovered link, in the given Label.
-setupURIWidget :: (MonadIO m, MonadReader r m, HasWebView r) => URIColors -> URIColors -> Label -> m ()
+setupURIWidget :: (MonadBase IO m, GUIReader n m) => URIColors -> URIColors -> Label -> m ()
 setupURIWidget normalColors secureColors widget = do
-    webView <- asks _webview
+    wv <- readGUI webView
 -- URI changed
-    _ <- io $ on webView loadCommitted $ \_ ->
-        (mapM_ (labelSetURI normalColors secureColors widget)) =<< ((>>= N.parseURIReference) `fmap` (webViewGetUri webView))
+    _ <- io $ on wv loadCommitted $ \_ ->
+        (mapM_ (labelSetURI normalColors secureColors widget)) =<< ((>>= N.parseURIReference) `fmap` (webViewGetUri wv))
 -- Link (un)hovered
-    _ <- io $ on webView hoveringOverLink $ \_title hoveredURI -> do
-        uri <- webViewGetUri webView
-        
+    _ <- io $ on wv hoveringOverLink $ \_title hoveredURI -> do
+        uri <- webViewGetUri wv
+
         forM_ (hoveredURI >>= N.parseURIReference) $ labelSetURI normalColors secureColors widget
         unless (isJust hoveredURI) $ forM_ (uri >>= N.parseURIReference) (labelSetURI normalColors secureColors widget)
-                
+
     return ()
 
 
--- | 
+-- |
 labelSetURI :: URIColors -> URIColors -> Label -> URI -> IO ()
 labelSetURI normalColors secureColors widget uri = do
     let colors = case uriScheme uri of
           "https:" -> secureColors
           _        -> normalColors
-          
+
     let i:j:k:l:_ = map length [
           uriScheme uri,
           maybe [] uriRegName (uriAuthority uri),
           uriPath uri,
           uriQuery uri]
- 
+
     labelSetAttributes widget $ [
         AttrWeight{     paStart = 0,         paEnd = -1,          paWeight = WeightBold },
         AttrForeground{ paStart = 0,         paEnd = i+2,         paColor = mScheme colors },
@@ -137,10 +126,10 @@ labelSetURI normalColors secureColors widget uri = do
         AttrForeground{ paStart = i+2+j,     paEnd = i+2+j+k,     paColor = mPath colors },
         AttrForeground{ paStart = i+2+j+k,   paEnd = i+2+j+k+l,   paColor = mQuery colors },
         AttrForeground{ paStart = i+2+j+k+l, paEnd = -1,          paColor = mFragment colors }]
-                        
+
     labelSetText widget (show uri)
-                         
-          
+
+
 data URIColors = URIColors {
     mScheme     :: Color,
     mHost       :: Color,

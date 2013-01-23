@@ -1,5 +1,5 @@
 Name:                hbro-contrib
-Version:             1.0.0.0
+Version:             1.1.0.0
 Synopsis:            Third-party extensions to hbro.
 -- Description:
 Homepage:            https://github.com/k0ral/hbro-contrib/
@@ -38,7 +38,7 @@ Library
         -- random-fu,
         text,
         time,
-        transformers,
+        transformers-base,
         unix,
         webkit
     Exposed-modules:
@@ -46,7 +46,6 @@ Library
         Hbro.Download,
         Hbro.History,
         Hbro.Misc,
-        Hbro.Session,
         Hbro.Settings,
         Hbro.StatusBar
     Ghc-options: -Wall
