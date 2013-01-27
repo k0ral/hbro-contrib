@@ -110,9 +110,8 @@ mySetup = do
     return ()
 
 
-myConfig :: FilePath -> Config K -> Config K
-myConfig myUIFile = id
-    . set uIFile         myUIFile
+myConfig :: Config K -> Config K
+myConfig = id
     . set homePage       myHomePage
     . set onDownload     myDownloadHook
     . set onLoadFinished myLoadFinishedHook
@@ -120,6 +119,4 @@ myConfig myUIFile = id
 
 -- Main function, expected to call 'hbro'
 main :: IO ()
-main = do
-    myUIFile <- getUserConfigDir "hbro" >/> "ui.xml"
-    hbro mySetup $ myConfig myUIFile
+main = hbro mySetup

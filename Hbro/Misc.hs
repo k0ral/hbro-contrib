@@ -1,4 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
 module Hbro.Misc where
 
 -- {{{ Imports

@@ -1,5 +1,5 @@
 Name:                hbro-contrib
-Version:             1.1.0.0
+Version:             1.1.1.0
 Synopsis:            Third-party extensions to hbro.
 -- Description:
 Homepage:            https://github.com/k0ral/hbro-contrib/
@@ -27,7 +27,7 @@ Library
         filepath,
         glib,
         gtk >= 0.12.3,
-        hbro >= 1.0.0.0,
+        hbro >= 1.1.1.0,
         monad-control,
         mtl,
         network,
@@ -48,4 +48,11 @@ Library
         Hbro.Misc,
         Hbro.Settings,
         Hbro.StatusBar
+    Extensions:
+        ConstraintKinds,
+        FlexibleContexts,
+        FunctionalDependencies,
+        GeneralizedNewtypeDeriving,
+        MultiParamTypeClasses,
+        RankNTypes
     Ghc-options: -Wall
