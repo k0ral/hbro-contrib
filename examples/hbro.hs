@@ -22,10 +22,13 @@ import Control.Conditional
 import Control.Lens hiding((??))
 import Control.Monad hiding(forM_, mapM_)
 
+import Data.Maybe
+
 import Graphics.UI.Gtk.Display.Label
 import Graphics.UI.Gtk.WebKit.WebSettings
 
 import Network.URI hiding(parseURI, parseURIReference)
+import qualified Network.URI as N
 
 import Prelude hiding(mapM_)
 
@@ -35,7 +38,7 @@ import System.FilePath
 -- }}}
 
 
-myHomePage = URI "http:" (Just $ URIAuth "" "//www.google.com" "") "" "" "" -- Seriously ?
+myHomePage = fromJust . N.parseURI $ "http://www.google.com"
 
 -- Download to $HOME
 myDownloadHook :: URI -> String -> Int -> K ()
