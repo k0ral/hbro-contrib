@@ -1,8 +1,8 @@
 Name:                hbro-contrib
-Version:             1.1.1.0
+Version:             1.2.0.0
 Synopsis:            Third-party extensions to hbro.
 -- Description:
-Homepage:            https://github.com/k0ral/hbro-contrib/
+Homepage:            https://bitbucket.org/k0ral/hbro-contrib
 Category:            Browser,Web
 
 License:             OtherLicense
@@ -17,8 +17,11 @@ Extra-source-files:  README.rst examples/hbro.hs
 Data-files:          examples/ui.xml
 
 Source-repository head
-    Type:     git
-    Location: git@github.com:k0ral/hbro-contrib.git
+    Type:     hg
+    Location: https://bitbucket.org/k0ral/hbro-contrib
+Source-repository head
+    Type:     hg
+    Location: http://hgweb.twyk.org/hbro-contrib
 
 Library
     Build-depends:
@@ -26,9 +29,8 @@ Library
         directory,
         filepath,
         glib,
-        gtk >= 0.12.3,
-        hbro >= 1.1.1.0,
-        monad-control,
+        gtk3 >= 0.12.3,
+        hbro >= 1.2.0.0,
         mtl,
         network,
         old-locale,
@@ -40,7 +42,8 @@ Library
         time,
         transformers-base,
         unix,
-        webkit
+        webkitgtk3,
+        xdg-basedir
     Exposed-modules:
         Hbro.Bookmarks,
         Hbro.Download,
@@ -50,6 +53,7 @@ Library
         Hbro.StatusBar
     Extensions:
         ConstraintKinds,
+        DeriveDataTypeable,
         FlexibleContexts,
         FunctionalDependencies,
         GeneralizedNewtypeDeriving,

@@ -1,18 +1,14 @@
 module Hbro.StatusBar where
 
 -- {{{ Imports
-import Hbro.Config
 import Hbro.Keys as Key
-import Hbro.Gui
+import Hbro.Gui as Gui
 import Hbro.Util
 
 import Control.Monad hiding(forM_, mapM_)
-import Control.Monad.Base
--- import Control.Monad.Reader hiding(forM_, mapM_)
+import Control.Monad.Reader hiding(forM_, mapM_)
 
 import Data.Foldable
-import Data.List
-import Data.Maybe
 
 import Graphics.Rendering.Pango.Enums
 import Graphics.Rendering.Pango.Layout
@@ -32,10 +28,10 @@ import System.Glib.Signals
 
 
 -- | Write current scroll position in the given Label.
-setupScrollWidget :: (MonadBase IO m, GUIReader n m) => Label -> m ()
-setupScrollWidget widget = do
-    adjustment <- io . scrolledWindowGetVAdjustment =<< readGUI scrollWindow
-    io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 32767 32767 32767}]
+installScrollWidget :: (MonadBase IO m, MonadReader r m, HasGUI r) => Label -> m ()
+installScrollWidget widget = do
+    adjustment <- io . scrolledWindowGetVAdjustment =<< Gui.get scrollWindowL
+    io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = gray}]
 
     io . void . onValueChanged adjustment $ do
         current <- adjustmentGetValue    adjustment
@@ -51,37 +47,37 @@ setupScrollWidget widget = do
 
 -- | /!\\ Doesn't work for now.
 -- Write current zoom level in the given Label.
-setupZoomWidget :: (MonadBase IO m, GUIReader n m) => Label -> m ()
-setupZoomWidget widget = do
+installZoomWidget :: (MonadBase IO m, MonadReader r m, HasGUI r) => Label -> m ()
+installZoomWidget widget = do
     io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 65535}]
-    readGUI webView >>= io . webViewGetZoomLevel >>= io . labelSetMarkup widget . escapeMarkup . show
+    Gui.get webViewL >>= io . webViewGetZoomLevel >>= io . labelSetMarkup widget . escapeMarkup . show
 
 -- | Write current keystrokes state in the given 'Label'
-setupKeyStrokesWidget :: (MonadBase IO m, ConfigWriter m m, GUIReader m m) => Label -> m ()
-setupKeyStrokesWidget widget = do
-    io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 0}]
+installKeyStrokesWidget :: (MonadBase IO m, MonadReader r m, HasGUI r, HasHooks n r, MonadBase IO n) => Label -> m ()
+installKeyStrokesWidget widget = do
+    io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = yellow}]
 
-    writeConfig onKeyStroke $ io . labelSetText widget . intercalate " " . map Key.serialize
+    Key.set onKeyPressedL $ io . labelSetText widget . unwords . map show
 
 -- | Write current load progress in the given 'Label'.
-setupProgressWidget :: (MonadBase IO m, GUIReader n m) => Label -> m ()
-setupProgressWidget widget = do
-    wv <- readGUI webView
+installProgressWidget :: (MonadBase IO m, MonadReader r m, HasGUI r) => Label -> m ()
+installProgressWidget widget = do
+    wv <- Gui.get webViewL
 -- Load started
     io . void . on wv loadStarted $ \_ -> do
-        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 0 0}]
+        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = red}]
         labelSetText widget "0%"
 -- Progress changed
-    io . void . on wv progressChanged $ \progress' -> do
-        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 0}]
-        labelSetText widget $ show progress' ++ "%"
+    io . void . on wv progressChanged $ \progress -> do
+        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = yellow}]
+        labelSetText widget $ show progress ++ "%"
 -- Load finished
     io . void . on wv loadFinished $ \_ -> do
-        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 0 65535 0}]
+        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = green}]
         labelSetText widget "100%"
 -- Error
     io . void . on wv loadError $ \_ _ _ -> do
-        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 0 0}]
+        labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = red}]
         labelSetText widget "ERROR"
         return False
 
@@ -89,9 +85,9 @@ setupProgressWidget widget = do
 
 
 -- | Write current URI, or the destination of a hovered link, in the given Label.
-setupURIWidget :: (MonadBase IO m, GUIReader n m) => URIColors -> URIColors -> Label -> m ()
-setupURIWidget normalColors secureColors widget = do
-    wv <- readGUI webView
+installURIWidget :: (MonadBase IO m, MonadReader r m, HasGUI r) => URIColors -> URIColors -> Label -> m ()
+installURIWidget normalColors secureColors widget = do
+    wv <- Gui.get webViewL
 -- URI changed
     _ <- io $ on wv loadCommitted $ \_ ->
         (mapM_ (labelSetURI normalColors secureColors widget)) =<< ((>>= N.parseURIReference) `fmap` (webViewGetUri wv))

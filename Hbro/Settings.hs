@@ -1,25 +1,29 @@
 module Hbro.Settings where
 
 -- {{{ Import
-import Graphics.UI.Gtk.WebKit.WebSettings
+import Hbro.Gui
+import Hbro.Util
+import qualified Hbro.Webkit.WebSettings as Settings
 
-import System.Glib.Attributes
+import Control.Monad.Reader
+
+import Graphics.UI.Gtk.WebKit.WebSettings
 -- }}}
 
 -- | Disable HTML5 database & local storage, plugins and scripts.
-paranoidWebSettings :: [AttrOp WebSettings]
-paranoidWebSettings = [
+setParanoidWebSettings :: (MonadBase IO m, MonadReader t m, HasGUI t) => m ()
+setParanoidWebSettings = do
     --webSettingsEnablePrivateBrowsing		:= False, --  Experimental
 -- Privacy
-    webSettingsEnableHtml5Database              := False,
-    webSettingsEnableHtml5LocalStorage	        := False,
-    webSettingsEnableOfflineWebApplicationCache := False,
-    webSettingsEnableSiteSpecificQuirks	        := False,
-    webSettingsUserAgent                        := firefoxUserAgent,
+    Settings.set webSettingsEnableHtml5Database              False
+    Settings.set webSettingsEnableHtml5LocalStorage          False
+    Settings.set webSettingsEnableOfflineWebApplicationCache False
+    Settings.set webSettingsEnableSiteSpecificQuirks         False
+    Settings.set webSettingsUserAgent                        firefoxUserAgent
 -- Security
-    webSettingsEnablePlugins                    := False,
-    webSettingsEnableScripts                    := False,
-    webSettingsJSCanOpenWindowAuto              := False]
+    Settings.set webSettingsEnablePlugins                    False
+    Settings.set webSettingsEnableScripts                    False
+    Settings.set webSettingsJSCanOpenWindowAuto              False
 
 -- {{{ User agents
 chromeUserAgent, epiphanyUserAgent, firefoxUserAgent, internetExplorerUserAgent, operaUserAgent, safariUserAgent :: String

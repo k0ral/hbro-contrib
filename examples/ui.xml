@@ -1,21 +1,27 @@
 <interface>
     <object class="GtkWindow" id="mainWindow">
+        <property name="default-height">768</property>
+        <property name="default-width">1024</property>
+
         <child><object class="GtkVBox" id="windowBox">
             <property name="homogeneous">False</property>
             <property name="spacing">0</property>
 
             <!-- Scrolled window, will contain the webview -->
             <child>
-                <object class="GtkScrolledWindow" id="webViewParent"></object>
+                <object class="GtkScrolledWindow" id="webViewParent">
+                    <property name="hscrollbar-policy">GTK_POLICY_NEVER</property>
+                    <property name="vscrollbar-policy">GTK_POLICY_NEVER</property>
+                </object>
             </child>
-            
+
 
             <!-- Prompt bar -->
             <child>
                 <object class="GtkHBox" id="promptBox">
                     <property name="homogeneous">False</property>
                     <property name="spacing">10</property>
-                    
+
                     <child>
                         <object class="GtkLabel" id="promptDescription"></object>
                         <packing>
@@ -39,7 +45,7 @@
                 <object class="GtkHBox" id="statusBox">
                     <property name="homogeneous">False</property>
                     <property name="spacing">5</property>
-                    
+
                     <child>
                         <object class="GtkLabel" id="progress"></object>
                         <packing>
@@ -91,7 +97,7 @@
                             <property name="expand">False</property>
                         </packing>
                     </child>
-                    
+
                 </object>
 
                 <packing>
@@ -106,7 +112,7 @@
                 <object class="GtkHBox" id="notificationBox">
                     <property name="homogeneous">False</property>
                     <property name="spacing">5</property>
-                    
+
                     <child>
                         <object class="GtkLabel" id="notificationLabel">
                             <property name="single-line-mode">True</property>

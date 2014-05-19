@@ -3,22 +3,15 @@ module Hbro.Misc where
 -- {{{ Imports
 import Hbro
 -- import Hbro.Error
-import Hbro.Gui
-import Hbro.Network
+import Hbro.Gui as Gui
 
-import Control.Exception
-import Control.Monad.Base
-import Control.Monad.Error
+import Control.Monad.Reader
 
--- import Data.Functor
-import Data.Maybe
-
--- import Graphics.UI.Gtk.Display.Label
 import Graphics.UI.Gtk.WebKit.WebBackForwardList
 import Graphics.UI.Gtk.WebKit.WebHistoryItem
 import Graphics.UI.Gtk.WebKit.WebView
 
-import Network.URI (URI)
+import Network.URI.Monadic
 
 import System.IO
 import System.Process
@@ -26,7 +19,8 @@ import System.Process
 
 
 -- | Open dmenu with given input and return selected entry.
-dmenu :: (Functor m, MonadBase IO m, MonadError HError m)
+-- This will block effectively the current thread.
+dmenu :: (MonadBase IO m, MonadThrow m)
       => [String]    -- ^ dmenu's commandline options
       -> String      -- ^ dmenu's input
       -> m String    -- ^ Selected entry
@@ -35,16 +29,17 @@ dmenu options input = do
     io $ hPutStr in_ input
     io $ hClose in_
 
-    output <- either (throwError . IOE) return =<< (io . try $ hGetLine out)
+    -- output <- either (throwM . (show :: IOException -> String)) return =<< (io . try $ hGetLine out)
+    output <- io $ hGetLine out
 
     io (hClose out) >> io (hClose err) >> (void . io $ waitForProcess pid)
     return output
 
 
 -- | List preceding URIs in dmenu and let the user select which one to load.
-goBackList :: (Functor m, MonadBase IO m, GUIReader n m, MonadError HError m) => [String] -> m URI
+goBackList :: (MonadBase IO m, MonadReader r m, HasGUI r, MonadThrow m) => [String] -> m URI
 goBackList dmenuOptions = do
-    list           <- io . webViewGetBackForwardList =<< readGUI webView
+    list           <- io . webViewGetBackForwardList =<< Gui.get webViewL
     n              <- io $ webBackForwardListGetBackLength list
     backList       <- io $ webBackForwardListGetBackListWithLimit list n
     dmenuList      <- io $ mapM itemToEntry backList
@@ -53,9 +48,9 @@ goBackList dmenuOptions = do
 
 
 -- | List succeeding URIs in dmenu and let the user select which one to load.
-goForwardList :: (Functor m, MonadBase IO m, GUIReader n m, MonadError HError m) => [String] -> m URI
+goForwardList :: (MonadBase IO m, MonadReader r m, HasGUI r, MonadThrow m) => [String] -> m URI
 goForwardList dmenuOptions = do
-    list        <- io . webViewGetBackForwardList =<< readGUI webView
+    list        <- io . webViewGetBackForwardList =<< Gui.get webViewL
     n           <- io $ webBackForwardListGetForwardLength list
     forwardList <- io $ webBackForwardListGetForwardListWithLimit list n
     dmenuList   <- io $ mapM itemToEntry forwardList
