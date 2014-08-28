@@ -1,20 +1,20 @@
 module Hbro.Misc where
 
 -- {{{ Imports
-import Hbro
-import Hbro.Gui as Gui
+import           Hbro
+import           Hbro.Gui                                  as Gui
 
-import Control.Monad.Reader hiding(mapM)
+import           Control.Monad.Reader                      hiding (mapM)
 
-import Graphics.UI.Gtk.WebKit.WebBackForwardList
-import Graphics.UI.Gtk.WebKit.WebHistoryItem
-import Graphics.UI.Gtk.WebKit.WebView
+import           Graphics.UI.Gtk.WebKit.WebBackForwardList
+import           Graphics.UI.Gtk.WebKit.WebHistoryItem
+import           Graphics.UI.Gtk.WebKit.WebView
 
-import Network.URI.Monadic
+import           Network.URI.Monadic
 
-import Safe
+import           Safe
 
-import System.Process
+import           System.Process
 -- }}}
 
 

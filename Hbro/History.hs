@@ -12,23 +12,24 @@ module Hbro.History
 
 -- {{{ Imports
 -- import Hbro
-import Hbro.Core
-import Hbro.Error
-import Hbro.Gui
-import Hbro.Logger
-import Hbro.Misc
-import Hbro.Prelude
+import           Hbro.Core
+import           Hbro.Error
+import           Hbro.Gui
+import           Hbro.Logger
+import           Hbro.Misc
+import           Hbro.Prelude
 
-import Control.Monad.Reader
+import           Control.Monad.Reader
 
-import Data.Time
+import           Data.Time
 
-import Filesystem (getAppDataDirectory, withTextFile, IOMode(..))
+import           Filesystem           (IOMode (..), getAppDataDirectory,
+                                       withTextFile)
 
-import Network.URI
+import           Network.URI
 
-import Text.Parsec hiding(many)
-import Text.Parsec.Text
+import           Text.Parsec          hiding (many)
+import           Text.Parsec.Text
 -- }}}
 
 -- {{{ Type definitions

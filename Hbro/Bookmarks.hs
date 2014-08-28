@@ -13,26 +13,26 @@ module Hbro.Bookmarks
 ) where
 
 -- {{{ Imports
-import Hbro
+import           Hbro
 -- import Hbro.Error
-import Hbro.Gui
-import Hbro.Misc
+import           Hbro.Gui
+import           Hbro.Misc
 
-import Control.Monad.Reader hiding(mapM)
+import           Control.Monad.Reader hiding (mapM)
 
-import qualified Data.Set as Set
+import qualified Data.Set             as Set
 -- import Data.Random.Extras
 -- import Data.Random.RVar
 -- import Data.Random.Source.DevRandom
 
-import Filesystem hiding(readFile, writeFile)
+import           Filesystem           hiding (readFile, writeFile)
 
-import Network.URI
+import           Network.URI
 
-import Safe
+import           Safe
 
-import Text.Parsec hiding(many)
-import Text.Parsec.Text
+import           Text.Parsec          hiding (many)
+import           Text.Parsec.Text
 -- }}}
 
 -- {{{ Type definitions

@@ -1,9 +1,9 @@
 module Hbro.Download where
 
 -- {{{ Imports
-import Hbro.Prelude
+import           Hbro.Prelude
 
-import Network.URI
+import           Network.URI
 -- }}}
 
 

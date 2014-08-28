@@ -1,36 +1,40 @@
-{-# LANGUAGE ConstraintKinds, FlexibleContexts, NoImplicitPrelude, OverloadedStrings, PackageImports #-}
+{-# LANGUAGE ConstraintKinds   #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PackageImports    #-}
 module Main where
 
 -- {{{ Imports
-import Hbro
-import qualified Hbro.Bookmarks as Bookmarks
-import qualified Hbro.Clipboard as Clipboard
-import Hbro.Config (homePageL)
-import qualified Hbro.Config as Config
-import qualified Hbro.Download as Download
-import qualified Hbro.Gui as GUI
-import Hbro.Gui.PromptBar
-import qualified Hbro.History as History
-import Hbro.Keys as Key
-import Hbro.Keys.Model ((.|))
-import Hbro.Keys.Monadic as Key
-import Hbro.Misc
-import Hbro.Settings
-import Hbro.Gui.PromptBar.Signals
-import Hbro.StatusBar
-import Hbro.WebView.Hooks as WebView
-import Hbro.WebView.Signals
-import qualified Hbro.Webkit.WebSettings as WebSettings
+import           Hbro
+import qualified Hbro.Bookmarks                     as Bookmarks
+import qualified Hbro.Clipboard                     as Clipboard
+import           Hbro.Config                        (homePageL)
+import qualified Hbro.Config                        as Config
+import qualified Hbro.Download                      as Download
+import qualified Hbro.Gui                           as GUI
+import           Hbro.Gui.PromptBar
+import           Hbro.Gui.PromptBar.Signals
+import qualified Hbro.History                       as History
+import           Hbro.Keys                          as Key
+import           Hbro.Keys.Model                    ((.|))
+import           Hbro.Keys.Monadic                  as Key
+import           Hbro.Misc
+import           Hbro.Settings
+import           Hbro.StatusBar
+import qualified Hbro.Webkit.WebSettings            as WebSettings
+import           Hbro.WebView.Hooks                 as WebView
+import           Hbro.WebView.Signals
 
-import qualified Data.Set as Set
+import qualified Data.Set                           as Set
 
-import Filesystem
+import           Filesystem
 
-import Graphics.UI.Gtk.Display.Label
-import Graphics.UI.Gtk.WebKit.WebSettings
+import           Graphics.UI.Gtk.Display.Label
+import           Graphics.UI.Gtk.WebKit.WebSettings
 
-import qualified Network.URI as N
-import Network.URI.Monadic
+import qualified Network.URI                        as N
+import           Network.URI.Monadic
 -- }}}
 
 
