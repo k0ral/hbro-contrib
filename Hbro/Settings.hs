@@ -2,7 +2,7 @@ module Hbro.Settings where
 
 -- {{{ Import
 import Hbro.Gui
-import Hbro.Util
+import Hbro.Prelude
 import qualified Hbro.Webkit.WebSettings as Settings
 
 import Control.Monad.Reader
@@ -11,7 +11,7 @@ import Graphics.UI.Gtk.WebKit.WebSettings
 -- }}}
 
 -- | Disable HTML5 database & local storage, plugins and scripts.
-setParanoidWebSettings :: (MonadBase IO m, MonadReader t m, HasGUI t) => m ()
+setParanoidWebSettings :: (BaseIO m, MonadReader t m, HasGUI t) => m ()
 setParanoidWebSettings = do
     --webSettingsEnablePrivateBrowsing		:= False, --  Experimental
 -- Privacy

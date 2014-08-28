@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ConstraintKinds, FlexibleContexts, NoImplicitPrelude, OverloadedStrings, PackageImports #-}
 module Main where
 
 -- {{{ Imports
@@ -22,26 +22,22 @@ import Hbro.WebView.Hooks as WebView
 import Hbro.WebView.Signals
 import qualified Hbro.Webkit.WebSettings as WebSettings
 
-import Control.Monad hiding(forM_, mapM_)
+import qualified Data.Set as Set
+
+import Filesystem
 
 import Graphics.UI.Gtk.Display.Label
 import Graphics.UI.Gtk.WebKit.WebSettings
 
 import qualified Network.URI as N
 import Network.URI.Monadic
-
-import Prelude hiding(mapM_)
-
-import System.Directory
-import System.Environment.XDG.BaseDir
-import System.FilePath
 -- }}}
 
 
 myHomePage = fromJust . N.parseURI $ "http://www.google.com"
 
 -- Download to $HOME
-myDownloadHook :: (MonadBase IO m) => Download -> m ()
+myDownloadHook :: (BaseIO m) => Download -> m ()
 myDownloadHook (Download uri filename _size) = do
     destination <- io getHomeDirectory
     Download.aria destination uri filename
@@ -60,16 +56,16 @@ mySetup = do
 -- Browse
     Key.bind (_Control .| _Left)  $  goBackList    ["-l", "10"] >>= load
     Key.bind (_Control .| _Right) $  goForwardList ["-l", "10"] >>= load
-    Key.bind (_Control .| _g)     $  prompt "DuckDuckGo search" "" >>= parseURIReference . ("http://duckduckgo.com/html?q=" ++) . escapeURIString isAllowedInURI >>= load
+    Key.bind (_Control .| _g)     $  prompt "DuckDuckGo search" "" >>= parseURIReference . ("http://duckduckgo.com/html?q=" ++) . (pack . escapeURIString isAllowedInURI . unpack) >>= load
 -- Bookmarks
-    Key.bind (_Control .| _d)      $     prompt "Bookmark with tags:" "" >>= Bookmarks.add . words
+    Key.bind (_Control .| _d)      $     prompt "Bookmark with tags:" "" >>= Bookmarks.add . Set.fromList . words
 {-    Key.bind (_Control .| _D)      $     Prompt.read "Bookmark all instances with tag:" "" $ \tags -> do
         uris <- mapM parseURI =<< sendCommandToAll "GET_URI"
         forM uris $ Bookmarks.addCustom . (`Bookmarks.Entry` words tags)
         void . Bookmarks.addCustom . (`Bookmarks.Entry` words tags) =<< getURI-}
     Key.bind (_Alt .| _d)          $     Bookmarks.deleteByTag ["-l", "10"]
     Key.bind (_Control .| _l)      $     Bookmarks.select      ["-l", "10"] >>= load
-    Key.bind (_Control .| _L)      $     Bookmarks.selectByTag ["-l", "10"] >>= void . mapM (\uri -> io $ spawn "hbro" [show uri])
+    Key.bind (_Control .| _L)      $     Bookmarks.selectByTag ["-l", "10"] >>= void . mapM (\uri -> io $ spawn "hbro" ["-u", show uri])
 -- History
     Key.bind (_Alt .| _h)          $     load . History._uri =<< History.select ["-l", "10"]
 -- Settings
@@ -77,7 +73,7 @@ mySetup = do
     Key.bind (_Alt .| _p)          $     WebSettings.toggle_ webSettingsEnablePlugins
 
 -- Web settings (cf Graphic.Gtk.WebKit.WebSettings)
-    -- WebSettings.set webSettingsEnablePlugins       True
+    WebSettings.set webSettingsEnablePlugins       False
     WebSettings.set webSettingsEnableScripts       True
     WebSettings.set webSettingsJSCanOpenWindowAuto True
     WebSettings.set webSettingsUserAgent           firefoxUserAgent

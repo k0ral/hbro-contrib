@@ -1,19 +1,17 @@
 module Hbro.Download where
 
 -- {{{ Imports
-import Hbro.Util
+import Hbro.Prelude
 
 import Network.URI
-
-import System.FilePath
 -- }}}
 
 
-aria, wget, axel :: (MonadBase IO m)
+aria, wget, axel :: (BaseIO m)
                  => FilePath -- ^ Destination directory
                  -> URI      -- ^ URI to download
-                 -> String   -- ^ Destination file name
+                 -> Text     -- ^ Destination file name
                  -> m ()
-aria destination uri filename = spawn "aria2c" [show uri, "-d", destination, "-o", filename]
-wget destination uri filename = spawn "wget"   [show uri, "-O", destination </> filename]
-axel destination uri filename = spawn "axel"   [show uri, "-o", destination </> filename]
+aria destination uri filename = spawn "aria2c" [show uri, "-d", unpack $ fpToText destination, "-o", unpack filename]
+wget destination uri filename = spawn "wget"   [show uri, "-O", unpack $ fpToText (destination </> fpFromText filename)]
+axel destination uri filename = spawn "axel"   [show uri, "-o", unpack $ fpToText (destination </> fpFromText filename)]

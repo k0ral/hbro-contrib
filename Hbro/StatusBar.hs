@@ -1,14 +1,12 @@
+{-# LANGUAGE ViewPatterns #-}
 module Hbro.StatusBar where
 
 -- {{{ Imports
 import Hbro.Keys as Key
 import Hbro.Gui as Gui
-import Hbro.Util
+import Hbro.Prelude hiding(on)
 
-import Control.Monad hiding(forM_, mapM_)
 import Control.Monad.Reader hiding(forM_, mapM_)
-
-import Data.Foldable
 
 import Graphics.Rendering.Pango.Enums
 import Graphics.Rendering.Pango.Layout
@@ -21,14 +19,12 @@ import Graphics.UI.Gtk.WebKit.WebView
 
 import Network.URI as N
 
-import Prelude hiding(mapM_)
-
 import System.Glib.Signals
 -- }}}
 
 
 -- | Write current scroll position in the given Label.
-installScrollWidget :: (MonadBase IO m, MonadReader r m, HasGUI r) => Label -> m ()
+installScrollWidget :: (BaseIO m, MonadReader r m, HasGUI r) => Label -> m ()
 installScrollWidget widget = do
     adjustment <- io . scrolledWindowGetVAdjustment =<< Gui.get scrollWindowL
     io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = gray}]
@@ -40,52 +36,52 @@ installScrollWidget widget = do
         page    <- adjustmentGetPageSize adjustment
 
         case upper-lower-page of
-            0 -> labelSetText widget "ALL"
+            0 -> labelSetText widget (asText "ALL")
             x -> labelSetText widget $ show (round $ current/x*100) ++ "%"
 
-    io $ labelSetText widget "0%"
+    io $ labelSetText widget (asText "0%")
 
 -- | /!\\ Doesn't work for now.
 -- Write current zoom level in the given Label.
-installZoomWidget :: (MonadBase IO m, MonadReader r m, HasGUI r) => Label -> m ()
+installZoomWidget :: (BaseIO m, MonadReader r m, HasGUI r) => Label -> m ()
 installZoomWidget widget = do
     io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 65535}]
     Gui.get webViewL >>= io . webViewGetZoomLevel >>= io . labelSetMarkup widget . escapeMarkup . show
 
 -- | Write current keystrokes state in the given 'Label'
-installKeyStrokesWidget :: (MonadBase IO m, MonadReader r m, HasGUI r, HasHooks n r, MonadBase IO n) => Label -> m ()
+installKeyStrokesWidget :: (BaseIO m, MonadReader r m, HasGUI r, HasHooks n r, BaseIO n) => Label -> m ()
 installKeyStrokesWidget widget = do
     io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = yellow}]
 
-    Key.set onKeyPressedL $ io . labelSetText widget . unwords . map show
+    Key.set onKeyPressedL $ io . labelSetText widget . unwords . map describe
 
 -- | Write current load progress in the given 'Label'.
-installProgressWidget :: (MonadBase IO m, MonadReader r m, HasGUI r) => Label -> m ()
+installProgressWidget :: (BaseIO m, MonadReader r m, HasGUI r) => Label -> m ()
 installProgressWidget widget = do
     wv <- Gui.get webViewL
 -- Load started
     io . void . on wv loadStarted $ \_ -> do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = red}]
-        labelSetText widget "0%"
+        labelSetText widget (asText "0%")
 -- Progress changed
     io . void . on wv progressChanged $ \progress -> do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = yellow}]
-        labelSetText widget $ show progress ++ "%"
+        labelSetText widget $ tshow progress ++ "%"
 -- Load finished
     io . void . on wv loadFinished $ \_ -> do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = green}]
-        labelSetText widget "100%"
+        labelSetText widget (asText "100%")
 -- Error
-    io . void . on wv loadError $ \_ _ _ -> do
+    io . void . on wv loadError $ \_ (asText -> _a) _ -> do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = red}]
-        labelSetText widget "ERROR"
+        labelSetText widget (asText "ERROR")
         return False
 
     return ()
 
 
 -- | Write current URI, or the destination of a hovered link, in the given Label.
-installURIWidget :: (MonadBase IO m, MonadReader r m, HasGUI r) => URIColors -> URIColors -> Label -> m ()
+installURIWidget :: (BaseIO m, MonadReader r m, HasGUI r) => URIColors -> URIColors -> Label -> m ()
 installURIWidget normalColors secureColors widget = do
     wv <- Gui.get webViewL
 -- URI changed
