@@ -18,8 +18,6 @@ import           Hbro
 import           Hbro.Gui
 import           Hbro.Misc
 
-import           Control.Monad.Reader hiding (mapM)
-
 import qualified Data.Set             as Set
 -- import Data.Random.Extras
 -- import Data.Random.RVar

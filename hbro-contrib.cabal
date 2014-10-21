@@ -29,7 +29,7 @@ Source-repository head
 Library
     Build-depends:
         base == 4.*,
-        classy-prelude,
+        classy-prelude >= 0.9.4,
         containers,
         glib,
         gtk3 >= 0.12.3,

@@ -19,8 +19,6 @@ import           Hbro.Logger
 import           Hbro.Misc
 import           Hbro.Prelude
 
-import           Control.Monad.Reader
-
 import           Data.Time
 
 import           Filesystem           (IOMode (..), getAppDataDirectory,

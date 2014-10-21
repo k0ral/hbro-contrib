@@ -5,8 +5,6 @@ import           Hbro.Gui
 import           Hbro.Prelude
 import qualified Hbro.Webkit.WebSettings            as Settings
 
-import           Control.Monad.Reader
-
 import           Graphics.UI.Gtk.WebKit.WebSettings
 -- }}}
 

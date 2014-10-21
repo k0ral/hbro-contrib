@@ -6,13 +6,10 @@ import           Hbro.Gui                                 as Gui
 import           Hbro.Keys                                as Key
 import           Hbro.Prelude                             hiding (on)
 
-import           Control.Monad.Reader                     hiding (forM_, mapM_)
-
 import           Graphics.Rendering.Pango.Enums
 import           Graphics.Rendering.Pango.Layout
 
 import           Graphics.UI.Gtk.Display.Label
---import Graphics.UI.Gtk.Gdk.EventM
 import           Graphics.UI.Gtk.Misc.Adjustment
 import           Graphics.UI.Gtk.Scrolling.ScrolledWindow
 import           Graphics.UI.Gtk.WebKit.WebView

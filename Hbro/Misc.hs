@@ -4,8 +4,6 @@ module Hbro.Misc where
 import           Hbro
 import           Hbro.Gui                                  as Gui
 
-import           Control.Monad.Reader                      hiding (mapM)
-
 import           Graphics.UI.Gtk.WebKit.WebBackForwardList
 import           Graphics.UI.Gtk.WebKit.WebHistoryItem
 import           Graphics.UI.Gtk.WebKit.WebView
