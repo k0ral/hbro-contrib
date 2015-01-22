@@ -1,3 +1,4 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 -- | Designed to be imported as @qualified@.
 module Hbro.History
     ( Entry(..)
@@ -14,19 +15,19 @@ module Hbro.History
 -- import Hbro
 import           Hbro.Core
 import           Hbro.Error
-import           Hbro.Gui
+import           Hbro.Gui.MainView
 import           Hbro.Logger
 import           Hbro.Misc
 import           Hbro.Prelude
 
 import           Data.Time
 
-import           Filesystem           (IOMode (..), getAppDataDirectory,
-                                       withTextFile)
+import           Filesystem        (IOMode (..), getAppDataDirectory,
+                                    withTextFile)
 
 import           Network.URI
 
-import           Text.Parsec          hiding (many)
+import           Text.Parsec       hiding (many)
 import           Text.Parsec.Text
 -- }}}
 
@@ -52,11 +53,11 @@ getHistoryFile :: (BaseIO m) => m FilePath
 getHistoryFile = getAppDataDirectory "hbro" >/> "history"
 
 -- | Log current visited page to history database
-log :: (ControlIO m, MonadReader r m, HasGUI r, MonadError Text m) => m ()
+log :: (ControlIO m, MainViewReader m, MonadError Text m) => m ()
 log = log' =<< getHistoryFile
 
 -- | Like 'log', but you can specify the history file path
-log' :: (ControlIO m, MonadReader r m, HasGUI r, MonadError Text m) => FilePath -> m ()
+log' :: (ControlIO m, MainViewReader m, MonadError Text m) => FilePath -> m ()
 log' file = do
     uri      <- getCurrentURI
     title    <- getPageTitle
@@ -72,7 +73,7 @@ add newEntry = (`add'` newEntry) =<< getHistoryFile
 -- | Like 'add', but you can specify the history file path
 add' :: (ControlIO m, MonadError Text m) => FilePath -> Entry -> m ()
 add' file newEntry = do
-    debugM "hbro.history" $ "Adding new entry <" ++ tshow (_uri newEntry) ++ "> to history file <" ++ fpToText file ++ ">"
+    debugM $ "Adding new entry <" ++ tshow (_uri newEntry) ++ "> to history file <" ++ fpToText file ++ ">"
     handleIO (throwError . tshow) . io $ withTextFile file AppendMode (`hPutStrLn` describe newEntry)
 
 -- | Try to parse a Text into a history Entry.
@@ -98,5 +99,4 @@ select dmenuOptions = (`select'` dmenuOptions) =<< getHistoryFile
 
 -- | Like 'select', but you can specify the history file path
 select' :: (ControlIO m, MonadError Text m) => FilePath -> [Text] -> m Entry
-select' file dmenuOptions = do
-    either (throwError . tshow) return . runParser entry () "(unknown)" =<< dmenu dmenuOptions . unlines . reverse . sort . ordNub . lines =<< readFile file
+select' file dmenuOptions = either (throwError . tshow) return . runParser entry () "(unknown)" =<< dmenu dmenuOptions . unlines . sortBy (flip compare) . ordNub . lines =<< readFile file

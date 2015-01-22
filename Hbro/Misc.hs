@@ -2,7 +2,7 @@ module Hbro.Misc where
 
 -- {{{ Imports
 import           Hbro
-import           Hbro.Gui                                  as Gui
+-- import           Hbro.Gui.MainView
 
 import           Graphics.UI.Gtk.WebKit.WebBackForwardList
 import           Graphics.UI.Gtk.WebKit.WebHistoryItem
@@ -29,14 +29,14 @@ dmenu options input = handleIO (\_ -> throwError "Dmenu canceled.") $ do
 
     output <- hGetLine out
 
-    io $ hClose out >> hClose err >> (void $ waitForProcess pid)
+    io $ hClose out >> hClose err >> void (waitForProcess pid)
     return output
 
 
 -- | List preceding URIs in dmenu and let the user select which one to load.
-goBackList :: (ControlIO m, MonadReader r m, HasGUI r, MonadError Text m) => [Text] -> m URI
+goBackList :: (ControlIO m, MainViewReader m, MonadError Text m) => [Text] -> m URI
 goBackList dmenuOptions = do
-    list           <- io . webViewGetBackForwardList =<< Gui.get webViewL
+    list           <- io . webViewGetBackForwardList =<< getWebView
     n              <- io $ webBackForwardListGetBackLength list
     backList       <- io $ webBackForwardListGetBackListWithLimit list n
     dmenuList      <- io $ mapM itemToEntry backList
@@ -45,9 +45,9 @@ goBackList dmenuOptions = do
 
 
 -- | List succeeding URIs in dmenu and let the user select which one to load.
-goForwardList :: (ControlIO m, MonadReader r m, HasGUI r, MonadError Text m) => [Text] -> m URI
+goForwardList :: (ControlIO m, MainViewReader m, MonadError Text m) => [Text] -> m URI
 goForwardList dmenuOptions = do
-    list        <- io . webViewGetBackForwardList =<< Gui.get webViewL
+    list        <- io . webViewGetBackForwardList =<< getWebView
     n           <- io $ webBackForwardListGetForwardLength list
     forwardList <- io $ webBackForwardListGetForwardListWithLimit list n
     dmenuList   <- io $ mapM itemToEntry forwardList
@@ -60,5 +60,5 @@ itemToEntry item = do
     title <- webHistoryItemGetTitle item
     uri   <- webHistoryItemGetUri   item
     case uri of
-        Just u -> return $ Just (u ++ " | " ++ (maybe "Untitled" id title))
+        Just u -> return $ Just (u ++ " | " ++ fromMaybe "Untitled" title)
         _      -> return Nothing

@@ -1,27 +1,31 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 module Hbro.Settings where
 
 -- {{{ Import
-import           Hbro.Gui
+import           Hbro.Attributes
+import           Hbro.Gui.MainView
 import           Hbro.Prelude
-import qualified Hbro.Webkit.WebSettings            as Settings
 
 import           Graphics.UI.Gtk.WebKit.WebSettings
+import           Graphics.UI.Gtk.WebKit.WebView
 -- }}}
 
 -- | Disable HTML5 database & local storage, plugins and scripts.
-setParanoidWebSettings :: (BaseIO m, MonadReader t m, HasGUI t) => m ()
+setParanoidWebSettings :: (BaseIO m, MainViewReader m) => m ()
 setParanoidWebSettings = do
+    s <- gSync . webViewGetWebSettings =<< getWebView
     --webSettingsEnablePrivateBrowsing		:= False, --  Experimental
 -- Privacy
-    Settings.set webSettingsEnableHtml5Database              False
-    Settings.set webSettingsEnableHtml5LocalStorage          False
-    Settings.set webSettingsEnableOfflineWebApplicationCache False
-    Settings.set webSettingsEnableSiteSpecificQuirks         False
-    Settings.set webSettingsUserAgent                        firefoxUserAgent
+    set s webSettingsEnableHtml5Database              False
+    set s webSettingsEnableHtml5LocalStorage          False
+    set s webSettingsEnableOfflineWebApplicationCache False
+    set s webSettingsEnableSiteSpecificQuirks         False
+    set s webSettingsUserAgent                        firefoxUserAgent
 -- Security
-    Settings.set webSettingsEnablePlugins                    False
-    Settings.set webSettingsEnableScripts                    False
-    Settings.set webSettingsJSCanOpenWindowAuto              False
+    set s webSettingsEnablePlugins                    False
+    set s webSettingsEnableScripts                    False
+    set s webSettingsJSCanOpenWindowAuto              False
+    return ()
 
 -- {{{ User agents
 chromeUserAgent, epiphanyUserAgent, firefoxUserAgent, internetExplorerUserAgent, operaUserAgent, safariUserAgent :: String

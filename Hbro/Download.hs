@@ -1,17 +1,34 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE ViewPatterns      #-}
 module Hbro.Download where
 
 -- {{{ Imports
 import           Hbro.Prelude
 
 import           Network.URI
+
+import           System.Process
 -- }}}
 
 
-aria, wget, axel :: (BaseIO m)
+aria, wget, axel :: (ControlIO m)
                  => FilePath -- ^ Destination directory
                  -> URI      -- ^ URI to download
                  -> Text     -- ^ Destination file name
                  -> m ()
-aria destination uri filename = spawn "aria2c" [show uri, "-d", unpack $ fpToText destination, "-o", unpack filename]
-wget destination uri filename = spawn "wget"   [show uri, "-O", unpack $ fpToText (destination </> fpFromText filename)]
-axel destination uri filename = spawn "axel"   [show uri, "-o", unpack $ fpToText (destination </> fpFromText filename)]
+aria (fpToText -> destination) (tshow -> uri) outputFile
+  = downloadWith "aria2c" [uri, "-d", destination, "-o", outputFile, "-q"] outputFile
+
+wget destination (tshow -> uri) outputFile
+  = downloadWith "wget" [uri, "-O", dest] outputFile
+    where dest = fpToText (destination </> fpFromText outputFile)
+
+axel destination (tshow -> uri) outputFile
+  = downloadWith "axel" [uri, "-o", dest] outputFile
+    where dest = fpToText (destination </> fpFromText outputFile)
+
+downloadWith :: (ControlIO m) => Text -> [Text] -> Text -> m ()
+downloadWith (unpack -> program) (map unpack -> args) (unpack -> outputFile) = handleIO (io . print) . io $ do
+    callProcess "notify-send" ["Download started", outputFile]
+    callProcess program args
+    callProcess "notify-send" ["Download finished", outputFile]

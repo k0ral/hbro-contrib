@@ -10,26 +10,26 @@ module Hbro.Bookmarks
     , Hbro.Bookmarks.select'
     , selectByTag
     , deleteByTag
-) where
+    ) where
 
 -- {{{ Imports
 import           Hbro
 -- import Hbro.Error
-import           Hbro.Gui
+-- import           Hbro.Gui.MainView
 import           Hbro.Misc
 
-import qualified Data.Set             as Set
+import qualified Data.Set         as Set
 -- import Data.Random.Extras
 -- import Data.Random.RVar
 -- import Data.Random.Source.DevRandom
 
-import           Filesystem           hiding (readFile, writeFile)
+import           Filesystem       hiding (readFile, writeFile)
 
 import           Network.URI
 
 import           Safe
 
-import           Text.Parsec          hiding (many)
+import           Text.Parsec      hiding (many)
 import           Text.Parsec.Text
 -- }}}
 
@@ -55,7 +55,7 @@ getBookmarksFile = getAppDataDirectory "hbro" >/> "bookmarks"
 entry :: Parser Entry
 entry = do
     spaces
-    u <- (some $ satisfy isAllowedInURI) <?> "URI"
+    u <- some (satisfy isAllowedInURI) <?> "URI"
     uri <- (maybe mzero return $ parseURI u) <?> "URI"
     some space
     tags <- many $ noneOf "\n"
@@ -67,14 +67,14 @@ hasTag :: Text -> Entry -> Bool
 hasTag tag = member tag . _tags
 
 -- | Add current webpage to bookmarks with given tags
-add :: (BaseIO m, MonadReader r m, HasGUI r, MonadError Text m, ToSet Text tags) => tags -> m ()
+add :: (BaseIO m, MainViewReader m, MonadError Text m) => [Text] -> m ()
 add tags = (`add'` tags) =<< getBookmarksFile
 
 -- | Like 'add', but you can specify the bookmarks file path
-add' :: (BaseIO m, MonadReader r m, Hbro.Gui.HasGUI r, MonadError Text m, ToSet Text tags) => FilePath -> tags -> m ()
+add' :: (BaseIO m, MainViewReader m, MonadError Text m) => FilePath -> [Text] -> m ()
 add' file tags = do
     uri <- getCurrentURI
-    void . addCustom file $ Entry uri (toSet tags)
+    void . addCustom file $ Entry uri (Set.fromList tags)
 
 -- | Add a custom entry to bookmarks
 addCustom :: (BaseIO m, MonadError Text m)
@@ -91,8 +91,7 @@ select dmenuOptions = (`select'` dmenuOptions) =<< getBookmarksFile
 
 -- | Like 'select', but you can specify the bookmarks file path
 select' :: (ControlIO m, MonadError Text m) => FilePath -> [Text] -> m URI
-select' file dmenuOptions = do
-    maybe (throwError "ERROR") return . parseURIReference . unpack . lastDef "" . words =<< dmenu dmenuOptions . unlines . sort . ordNub . (map reformat) . lines =<< readFile file
+select' file dmenuOptions = maybe (throwError "ERROR") return . parseURIReference . unpack . lastDef "" . words =<< dmenu dmenuOptions . unlines . sort . ordNub . map reformat . lines =<< readFile file
 
 reformat :: Text -> Text
 reformat line = unwords $ tags' ++ [uri]
@@ -119,7 +118,7 @@ selectByTag' file dmenuOptions = do
     let tags = unlines . Set.toList . foldl' Set.union Set.empty $ map _tags entries
 
 -- Let user select a tag
-    (map _uri) . (\t -> filter (hasTag t) entries) <$> dmenu dmenuOptions tags
+    map _uri . (\t -> filter (hasTag t) entries) <$> dmenu dmenuOptions tags
 
 --
 --popOldest :: PortableFilePath -> Text -> IO (Maybe URI)
@@ -160,8 +159,8 @@ deleteByTag' file dmenuOptions = do
     result <- readFile file
 
     entries <- mapM (either (throwError . tshow) return . runParser entry () "(unknown)") . lines $ result
-    let tags = unlines . Set.toList . (foldl' Set.union Set.empty) $ map _tags entries
+    let tags = unlines . Set.toList . foldl' Set.union Set.empty $ map _tags entries
 
     tag <- dmenu dmenuOptions tags
     writeFile (file <.> "old") $ unlines (describe <$> entries)
-    writeFile file $ (unlines . map describe . (filter (not . (hasTag tag)))) entries
+    writeFile file $ (unlines . map describe . filter (not . hasTag tag)) entries

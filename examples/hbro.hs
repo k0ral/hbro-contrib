@@ -1,36 +1,34 @@
 {-# LANGUAGE ConstraintKinds   #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PackageImports    #-}
 module Main where
 
 -- {{{ Imports
 import           Hbro
+import           Hbro.Attributes
 import qualified Hbro.Bookmarks                     as Bookmarks
 import qualified Hbro.Clipboard                     as Clipboard
 import           Hbro.Config                        (homePageL)
 import qualified Hbro.Config                        as Config
+import           Hbro.Defaults
 import qualified Hbro.Download                      as Download
-import qualified Hbro.Gui                           as GUI
 import           Hbro.Gui.PromptBar
-import           Hbro.Gui.PromptBar.Signals
 import qualified Hbro.History                       as History
 import           Hbro.Keys                          as Key
 import           Hbro.Keys.Model                    ((.|))
-import           Hbro.Keys.Monadic                  as Key
 import           Hbro.Misc
 import           Hbro.Settings
 import           Hbro.StatusBar
-import qualified Hbro.Webkit.WebSettings            as WebSettings
-import           Hbro.WebView.Hooks                 as WebView
-import           Hbro.WebView.Signals
 
+import           Control.Lens.Getter
+
+import qualified Data.Map                           as Map
 import qualified Data.Set                           as Set
 
 import           Filesystem
 
-import           Graphics.UI.Gtk.Display.Label
 import           Graphics.UI.Gtk.WebKit.WebSettings
 
 import qualified Network.URI                        as N
@@ -38,60 +36,68 @@ import           Network.URI.Monadic
 -- }}}
 
 
-myHomePage = fromJust . N.parseURI $ "http://www.google.com"
+myHomePage = fromJust . N.parseURI $ "https://www.google.com"
 
 -- Download to $HOME
-myDownloadHook :: (BaseIO m) => Download -> m ()
-myDownloadHook (Download uri filename _size) = do
+myDownloadHook :: (ControlIO m) => (URI, Text, Maybe Int) -> m ()
+myDownloadHook (uri, filename, _size) = do
     destination <- io getHomeDirectory
     Download.aria destination uri filename
 
--- myLoadFinishedHook :: KE ()
-myLoadFinishedHook _ = History.log
+myLoadFinishedHook :: (ControlIO m, MainViewReader m, MonadError Text m) => m ()
+myLoadFinishedHook = History.log
 
--- Setup (run at start-up)
--- Note that keybindings are suited for an azerty keyboard
-mySetup :: K ()
-mySetup = do
-    Config.set  homePageL       myHomePage
-    WebView.set onDownloadL     myDownloadHook
-    WebView.set onLoadFinishedL myLoadFinishedHook
-
--- Browse
-    Key.bind (_Control .| _Left)  $  goBackList    ["-l", "10"] >>= load
-    Key.bind (_Control .| _Right) $  goForwardList ["-l", "10"] >>= load
-    Key.bind (_Control .| _g)     $  prompt "DuckDuckGo search" "" >>= parseURIReference . ("http://duckduckgo.com/html?q=" ++) . (pack . escapeURIString isAllowedInURI . unpack) >>= load
+-- Those key bindings are suited for an azerty keyboard
+myKeyMap :: (OmniReader m) => KeyMap m
+myKeyMap = defaultKeyMap <> Map.fromList
+  -- Browse
+    [ [_Control .| _Left]  >:  goBackList    ["-l", "10"] >>= load
+    , [_Control .| _Right] >:  goForwardList ["-l", "10"] >>= load
+    , [_Control .| _g]     >:  promptM "DuckDuckGo search" "" >>= parseURIReference . ("http://duckduckgo.com/html?q=" ++) . pack . escapeURIString isAllowedInURI . unpack >>= load
 -- Bookmarks
-    Key.bind (_Control .| _d)      $     prompt "Bookmark with tags:" "" >>= Bookmarks.add . Set.fromList . words
-{-    Key.bind (_Control .| _D)      $     Prompt.read "Bookmark all instances with tag:" "" $ \tags -> do
-        uris <- mapM parseURI =<< sendCommandToAll "GET_URI"
-        forM uris $ Bookmarks.addCustom . (`Bookmarks.Entry` words tags)
-        void . Bookmarks.addCustom . (`Bookmarks.Entry` words tags) =<< getURI-}
-    Key.bind (_Alt .| _d)          $     Bookmarks.deleteByTag ["-l", "10"]
-    Key.bind (_Control .| _l)      $     Bookmarks.select      ["-l", "10"] >>= load
-    Key.bind (_Control .| _L)      $     Bookmarks.selectByTag ["-l", "10"] >>= void . mapM (\uri -> io $ spawn "hbro" ["-u", show uri])
+    , [_Control .| _d]     >:  promptM "Bookmark with tags:" "" >>= Bookmarks.add . words
+    -- , [_Control .| _D]     >:  promptM "Bookmark all instances with tag:" "" >>= \tags -> do
+    --     uris <- mapM parseURI =<< sendCommandToAll "GET_URI"
+    --     forM uris $ Bookmarks.addCustom . (`Bookmarks.Entry` words tags)
+    --     void . Bookmarks.addCustom . (`Bookmarks.Entry` words tags) =<< getURI
+    , [_Alt .| _d]         >:  Bookmarks.deleteByTag ["-l", "10"]
+    , [_Control .| _l]     >:  Bookmarks.select      ["-l", "10"] >>= load
+    , [_Control .| _L]     >:  Bookmarks.selectByTag ["-l", "10"] >>= void . mapM (\uri -> io $ spawn "hbro" ["-u", show uri])
 -- History
-    Key.bind (_Alt .| _h)          $     load . History._uri =<< History.select ["-l", "10"]
+    , [_Alt .| _h]         >:  load . History._uri =<< History.select ["-l", "10"]
 -- Settings
-    Key.bind (_Alt .| _j)          $     WebSettings.toggle_ webSettingsEnableScripts
-    Key.bind (_Alt .| _p)          $     WebSettings.toggle_ webSettingsEnablePlugins
+    , [_Alt .| _j]         >:  getWebSettings >>= \s -> toggle_ s webSettingsEnableScripts
+    , [_Alt .| _p]         >:  getWebSettings >>= \s -> toggle_ s webSettingsEnablePlugins
+    ]
+
+
+-- Setup run at start-up
+myStartUpHook :: (OmniReader m) => m ()
+myStartUpHook = do
+    Config.set homePageL myHomePage
+
+    mainView <- getMainView
+    addHook (mainView^.downloadHookL) myDownloadHook
+    addHook (mainView^.loadFinishedHookL) $ const myLoadFinishedHook
 
 -- Web settings (cf Graphic.Gtk.WebKit.WebSettings)
-    WebSettings.set webSettingsEnablePlugins       False
-    WebSettings.set webSettingsEnableScripts       True
-    WebSettings.set webSettingsJSCanOpenWindowAuto True
-    WebSettings.set webSettingsUserAgent           firefoxUserAgent
+    s <- getWebSettings
+    set s webSettingsEnablePlugins       False
+    set s webSettingsEnableScripts       True
+    set s webSettingsJSCanOpenWindowAuto True
+    set s webSettingsUserAgent           firefoxUserAgent
 
 -- Status bar customization: scroll position + zoom level + load progress + current URI + key strokes
-    installScrollWidget =<< GUI.getObject castToLabel "scroll"
-    installZoomWidget   =<< GUI.getObject castToLabel "zoom"
-    installProgressWidget =<< GUI.getObject castToLabel "progress"
-    installURIWidget defaultURIColors defaultSecureURIColors =<< GUI.getObject castToLabel "uri"
-    installKeyStrokesWidget =<< GUI.getObject castToLabel "keys"
+    b <- getBuilder
+    installScrollWidget =<< getWidget b "scroll"
+    installZoomWidget =<< getWidget b "zoom"
+    installProgressWidget =<< getWidget b "progress"
+    installURIWidget defaultURIColors defaultSecureURIColors =<< getWidget b "uri"
+    installKeyStrokesWidget =<< getWidget b "keys"
 
     return ()
 
 
 -- Main function, expected to call 'hbro'
 main :: IO ()
-main = hbro mySetup
+main = hbro $ def { keyMap = myKeyMap, startUpHook = myStartUpHook }
