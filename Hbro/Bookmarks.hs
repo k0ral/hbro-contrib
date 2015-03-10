@@ -1,11 +1,16 @@
+{-# LANGUAGE ConstraintKinds    #-}
+{-# LANGUAGE FlexibleContexts   #-}
+{-# LANGUAGE NoImplicitPrelude  #-}
+{-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE StandaloneDeriving #-}
 -- | Simple bookmarks system: bookmarks are a list of tagged URIs.
 --
 -- This module is designed to be imported as @qualified@.
 module Hbro.Bookmarks
     ( Entry(..)
+    , addCurrent
+    , addCurrent'
     , add
-    , add'
-    , addCustom
     , Hbro.Bookmarks.select
     , Hbro.Bookmarks.select'
     , selectByTag
@@ -14,23 +19,21 @@ module Hbro.Bookmarks
 
 -- {{{ Imports
 import           Hbro
--- import Hbro.Error
--- import           Hbro.Gui.MainView
+import           Hbro.Logger
 import           Hbro.Misc
 
-import qualified Data.Set         as Set
+import           Data.Aeson.Extended
+import qualified Data.ByteString.Lazy as Lazy
+import qualified Data.Set             as Set
 -- import Data.Random.Extras
 -- import Data.Random.RVar
 -- import Data.Random.Source.DevRandom
 
-import           Filesystem       hiding (readFile, writeFile)
+import           Filesystem           hiding (readFile, writeFile)
 
-import           Network.URI
+import           Network.URI.Extended
 
 import           Safe
-
-import           Text.Parsec      hiding (many)
-import           Text.Parsec.Text
 -- }}}
 
 -- {{{ Type definitions
@@ -39,88 +42,84 @@ data Entry = Entry
     , _tags :: Set Text
     }
 
+deriving instance Eq Entry
+deriving instance Ord Entry
+
 instance Describable Entry where
-    describe (Entry uri tags) = unwords $ (tshow uri):(Set.toList tags)
+    describe (Entry uri tags) = unwords $ map (\x -> "[" ++ x ++ "]") (Set.toList tags) ++ [tshow uri]
+
+instance FromJSON Entry where
+    parseJSON (Object v) = Entry <$> v .: "uri" <*> v .: "tags"
+    parseJSON _          = mzero
+
+instance ToJSON Entry where
+    toJSON (Entry u t) = object ["uri" .= u, "tags" .= t]
 -- }}}
 
--- Error message
--- invalidBookmarkEntry :: Text -> Text
--- invalidBookmarkEntry = ("Invalid bookmark entry: " ++)
+-- {{{ Util
+readFileE :: (ControlIO m, MonadError Text m) => FilePath -> m Lazy.ByteString
+readFileE = handleIO (throwError . tshow) . readFile
+
+writeFileE :: (ControlIO m, MonadError Text m) => FilePath -> Lazy.ByteString -> m ()
+writeFileE f x = handleIO (throwError . tshow) $ writeFile f x
+-- }}}
 
 -- | Return bookmarks file
 getBookmarksFile :: (BaseIO m) => m FilePath
 getBookmarksFile = getAppDataDirectory "hbro" >/> "bookmarks"
-
--- | Try to parse a Text into a history Entry.
-entry :: Parser Entry
-entry = do
-    spaces
-    u <- some (satisfy isAllowedInURI) <?> "URI"
-    uri <- (maybe mzero return $ parseURI u) <?> "URI"
-    some space
-    tags <- many $ noneOf "\n"
-    return $ Entry uri (Set.fromList . words $ pack tags)
-
 
 -- | Check if the given bookmark 'Entry' is tagged with the given tag.
 hasTag :: Text -> Entry -> Bool
 hasTag tag = member tag . _tags
 
 -- | Add current webpage to bookmarks with given tags
-add :: (BaseIO m, MainViewReader m, MonadError Text m) => [Text] -> m ()
-add tags = (`add'` tags) =<< getBookmarksFile
+addCurrent :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadError Text m, Alternative m) => [Text] -> m ()
+addCurrent tags = (`addCurrent'` tags) =<< getBookmarksFile
 
 -- | Like 'add', but you can specify the bookmarks file path
-add' :: (BaseIO m, MainViewReader m, MonadError Text m) => FilePath -> [Text] -> m ()
-add' file tags = do
+addCurrent' :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadError Text m, Alternative m) => FilePath -> [Text] -> m ()
+addCurrent' file tags = do
     uri <- getCurrentURI
-    void . addCustom file $ Entry uri (Set.fromList tags)
+    void . add file $ Entry uri (Set.fromList tags)
 
 -- | Add a custom entry to bookmarks
-addCustom :: (BaseIO m, MonadError Text m)
-          => FilePath      -- ^ Bookmarks file
-          -> Entry         -- ^ Custom bookmark entry
-          -> m ()
-addCustom file newEntry = io $ withFile file AppendMode (`hPutStrLn` describe newEntry)
+add :: (ControlIO m, MonadLogger m, MonadError Text m, Alternative m)
+    => FilePath      -- ^ Bookmarks file
+    -> Entry         -- ^ Custom bookmark entry
+    -> m ()
+add file newEntry = do
+  info $ "New bookmark: " ++ describe newEntry
+  tryIO . io . copyFile file $ file <.> "bak"
+  entries <- (decodeM =<< readFileE file) <|> return Set.empty
+  writeFileE file . encodePretty $ Set.insert newEntry entries
 
 -- | Open a dmenu with all (sorted alphabetically) bookmarks entries, and return the user's selection, if any.
-select :: (ControlIO m, MonadError Text m)
-       => [Text]         -- ^ dmenu's commandline options
-       -> m URI
-select dmenuOptions = (`select'` dmenuOptions) =<< getBookmarksFile
+select :: (ControlIO m, MonadError Text m) => m URI
+select = (`select'` defaultDmenuOptions) =<< getBookmarksFile
 
 -- | Like 'select', but you can specify the bookmarks file path
 select' :: (ControlIO m, MonadError Text m) => FilePath -> [Text] -> m URI
-select' file dmenuOptions = maybe (throwError "ERROR") return . parseURIReference . unpack . lastDef "" . words =<< dmenu dmenuOptions . unlines . sort . ordNub . map reformat . lines =<< readFile file
-
-reformat :: Text -> Text
-reformat line = unwords $ tags' ++ [uri]
-  where
-    uri:tags = words line
-    tags'    = sort $ map (("[" ++) . (++ "]")) tags
+select' file dmenuOptions = parseURIReferenceM . lastDef "" . words =<< dmenu dmenuOptions . unlines . sort . map (describe :: Entry -> Text) . Set.toList =<< decodeM =<< readFileE file
 
 -- | Open a dmenu with all (sorted alphabetically) bookmarks tags, and return the user's selection, if any.
-selectByTag :: (ControlIO m, MonadError Text m)
-          => [Text]          -- ^ dmenu's commandline options
-          -> m [URI]
-selectByTag dmenuOptions = (`selectByTag'` dmenuOptions) =<< getBookmarksFile
+selectByTag :: (ControlIO m, MonadLogger m, MonadError Text m) => m [URI]
+selectByTag = (`selectByTag'` defaultDmenuOptions) =<< getBookmarksFile
 
 -- | Like 'selectByTag', but you can specify the bookmarks file path
-selectByTag' :: (ControlIO m, MonadError Text m)
+selectByTag' :: (ControlIO m, MonadLogger m, MonadError Text m)
           => FilePath          -- ^ Bookmarks' database file
           -> [Text]            -- ^ dmenu's commandline options
           -> m [URI]
 selectByTag' file dmenuOptions = do
 -- Read bookmarks file
-    result <- readFile file
-
-    entries <- mapM (either (throwError . tshow) return . runParser entry () "(unknown)") . lines $ result
+    entries <- decodeM =<< readFileE file
     let tags = unlines . Set.toList . foldl' Set.union Set.empty $ map _tags entries
 
 -- Let user select a tag
-    map _uri . (\t -> filter (hasTag t) entries) <$> dmenu dmenuOptions tags
+    tag <- dmenu dmenuOptions tags
+    debug $ "User selected tag " ++ tag
+    return . map _uri $ filter (hasTag tag) entries
 
---
 --popOldest :: PortableFilePath -> Text -> IO (Maybe URI)
 --popOldest file tags = do
 
@@ -145,22 +144,19 @@ selectByTag' file dmenuOptions = do
 
 
 -- | Remove all bookmarks entries matching the given tag.
-deleteByTag :: (ControlIO m, MonadError Text m)
-          => [Text]          -- ^ dmenu's commandline options
-          -> m ()
-deleteByTag dmenuOptions = (`deleteByTag'` dmenuOptions) =<< getBookmarksFile
+deleteByTag :: (ControlIO m, MonadLogger m, MonadError Text m) => m ()
+deleteByTag = (`deleteByTag'` defaultDmenuOptions) =<< getBookmarksFile
 
 -- | Like 'selectByTag', but you can specify the bookmarks file path
-deleteByTag' :: (ControlIO m, MonadError Text m)
+deleteByTag' :: (ControlIO m, MonadLogger m, MonadError Text m)
               => FilePath          -- ^ Bookmarks' database file
               -> [Text]            -- ^ dmenu's commandline options
               -> m ()
 deleteByTag' file dmenuOptions = do
-    result <- readFile file
-
-    entries <- mapM (either (throwError . tshow) return . runParser entry () "(unknown)") . lines $ result
-    let tags = unlines . Set.toList . foldl' Set.union Set.empty $ map _tags entries
+    entries <- decodeM =<< readFileE file
+    let tags = unlines . Set.toList . foldl' Set.union Set.empty . map _tags $ Set.toList entries
 
     tag <- dmenu dmenuOptions tags
-    writeFile (file <.> "old") $ unlines (describe <$> entries)
-    writeFile file $ (unlines . map describe . filter (not . hasTag tag)) entries
+    info $ "Deleting bookmarks with tag " ++ tag
+    tryIO . io . copyFile file $ file <.> "bak"
+    writeFileE file . encodePretty $ Set.filter (not . hasTag tag) entries

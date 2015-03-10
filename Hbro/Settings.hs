@@ -1,20 +1,24 @@
+{-# LANGUAGE ConstraintKinds   #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 module Hbro.Settings where
 
 -- {{{ Import
-import           Hbro.Attributes
 import           Hbro.Gui.MainView
+import           Hbro.Logger
 import           Hbro.Prelude
 
 import           Graphics.UI.Gtk.WebKit.WebSettings
 import           Graphics.UI.Gtk.WebKit.WebView
+
+import           System.Glib.Attributes.Extended
 -- }}}
 
 -- | Disable HTML5 database & local storage, plugins and scripts.
-setParanoidWebSettings :: (BaseIO m, MainViewReader m) => m ()
+setParanoidWebSettings :: (BaseIO m, MonadLogger m, MonadReader r m, Has MainView r) => m ()
 setParanoidWebSettings = do
     s <- gSync . webViewGetWebSettings =<< getWebView
-    --webSettingsEnablePrivateBrowsing		:= False, --  Experimental
+    --set s webSettingsEnablePrivateBrowsing		False, --  Experimental
 -- Privacy
     set s webSettingsEnableHtml5Database              False
     set s webSettingsEnableHtml5LocalStorage          False

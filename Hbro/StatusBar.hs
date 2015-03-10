@@ -1,9 +1,12 @@
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE NoImplicitPrelude   #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE ViewPatterns        #-}
 module Hbro.StatusBar where
 
 -- {{{ Imports
-import           Hbro.Attributes
 import           Hbro.Event
 import           Hbro.Gui.MainView
 import           Hbro.Keys                       as Key
@@ -20,16 +23,17 @@ import           Graphics.UI.Gtk.WebKit.WebView
 
 import           Network.URI                     as N
 
-import           System.Glib.Signals
+import           System.Glib.Attributes.Extended
+import           System.Glib.Signals             hiding (Signal)
 -- }}}
 
 
 -- | Write current scroll position in the given Label.
-installScrollWidget :: (ControlIO m, MainViewReader m) => Label -> m ()
+installScrollWidget :: (ControlIO m, MonadReader r m, Has MainView r) => Label -> m ()
 installScrollWidget widget = do
     gAsync $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = gray}]
 
-    mainView <- getMainView
+    mainView <- ask
     addHook (mainView^.scrolledHookL) . const $ do
         adjustment <- getAdjustment Vertical $ mainView^.scrollWindowL
         current    <- get adjustment adjustmentValue
@@ -45,27 +49,27 @@ installScrollWidget widget = do
 
 -- | /!\\ Doesn't work for now.
 -- Write current zoom level in the given Label.
-installZoomWidget :: (ControlIO m, MainViewReader m) => Label -> m ()
+installZoomWidget :: (ControlIO m, MonadReader r m, Has MainView r) => Label -> m ()
 installZoomWidget widget = do
     io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 65535}]
-    mainView <- getMainView
+    mainView <- ask
     getWebView >>= \w -> get w webViewZoomLevel >>= updateZoomLabel
     void $ addHook (mainView^.zoomLevelChangedHookL) updateZoomLabel
   where updateZoomLabel = io . labelSetMarkup widget . escapeMarkup . show
 
 
 -- | Write current keystrokes state in the given 'Label'
-installKeyStrokesWidget :: (ControlIO m, KeySignalReader m) => Label -> m ()
+installKeyStrokesWidget :: (ControlIO m, MonadReader r m, Has (Signal KeyMapPressed) r) => Label -> m ()
 installKeyStrokesWidget widget = do
     io $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = yellow}]
-    keySignal <- read KeySignalTag
+    (keySignal :: Signal KeyMapPressed) <- ask
     void . addHook keySignal $ \(strokes, isBound) -> gAsync $ do
       labelSetText widget . unwords $ map describe strokes
       labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = green <| isBound |> red}]
 
 
 -- | Write current load progress in the given 'Label'.
-installProgressWidget :: (BaseIO m, MainViewReader m) => Label -> m ()
+installProgressWidget :: (BaseIO m, MonadReader r m, Has MainView r) => Label -> m ()
 installProgressWidget widget = do
     wv <- getWebView
 -- Load started
@@ -90,12 +94,12 @@ installProgressWidget widget = do
 
 
 -- | Write current URI, or the destination of a hovered link, in the given Label.
-installURIWidget :: (BaseIO m, MainViewReader m) => URIColors -> URIColors -> Label -> m ()
+installURIWidget :: (BaseIO m, MonadReader r m, Has MainView r) => URIColors -> URIColors -> Label -> m ()
 installURIWidget normalColors secureColors widget = do
     wv <- getWebView
 -- URI changed
     _ <- io $ on wv loadCommitted $ \_ ->
-        (mapM_ (labelSetURI normalColors secureColors widget)) =<< ((>>= N.parseURIReference) `fmap` (webViewGetUri wv))
+        (mapM_ (labelSetURI normalColors secureColors widget)) =<< ((>>= N.parseURIReference) `fmap` webViewGetUri wv)
 -- Link (un)hovered
     _ <- io $ on wv hoveringOverLink $ \_title hoveredURI -> do
         uri <- webViewGetUri wv

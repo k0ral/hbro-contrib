@@ -22,7 +22,10 @@ Source-repository head
 
 Library
     Build-depends:
+        aeson,
+        aeson-pretty,
         base == 4.*,
+        bytestring,
         classy-prelude >= 0.9.4,
         containers,
         glib,
@@ -45,20 +48,11 @@ Library
         unix,
         webkitgtk3
     Exposed-modules:
+        Data.Aeson.Extended,
         Hbro.Bookmarks,
         Hbro.Download,
         Hbro.History,
         Hbro.Misc,
         Hbro.Settings,
         Hbro.StatusBar
-    Extensions:
-        ConstraintKinds,
-        DeriveDataTypeable,
-        FlexibleContexts,
-        FunctionalDependencies,
-        GeneralizedNewtypeDeriving,
-        MultiParamTypeClasses,
-        NoImplicitPrelude,
-        OverloadedStrings,
-        RankNTypes
     Ghc-options: -Wall -fno-warn-unused-do-bind -threaded

@@ -7,7 +7,6 @@ module Main where
 
 -- {{{ Imports
 import           Hbro
-import           Hbro.Attributes
 import qualified Hbro.Bookmarks                     as Bookmarks
 import qualified Hbro.Clipboard                     as Clipboard
 import           Hbro.Config                        (homePageL)
@@ -18,6 +17,7 @@ import           Hbro.Gui.PromptBar
 import qualified Hbro.History                       as History
 import           Hbro.Keys                          as Key
 import           Hbro.Keys.Model                    ((.|))
+import           Hbro.Logger
 import           Hbro.Misc
 import           Hbro.Settings
 import           Hbro.StatusBar
@@ -32,7 +32,10 @@ import           Filesystem
 import           Graphics.UI.Gtk.WebKit.WebSettings
 
 import qualified Network.URI                        as N
-import           Network.URI.Monadic
+import           Network.URI.Extended
+
+import           System.Glib.Attributes.Extended
+import           System.Process.Extended
 -- }}}
 
 
@@ -44,27 +47,27 @@ myDownloadHook (uri, filename, _size) = do
     destination <- io getHomeDirectory
     Download.aria destination uri filename
 
-myLoadFinishedHook :: (ControlIO m, MainViewReader m, MonadError Text m) => m ()
+myLoadFinishedHook :: (ControlIO m, MonadReader r m, Has MainView r, MonadLogger m, MonadError Text m, Alternative m) => m ()
 myLoadFinishedHook = History.log
 
 -- Those key bindings are suited for an azerty keyboard
-myKeyMap :: (OmniReader m) => KeyMap m
+myKeyMap :: (God r m) => KeyMap m
 myKeyMap = defaultKeyMap <> Map.fromList
   -- Browse
-    [ [_Control .| _Left]  >:  goBackList    ["-l", "10"] >>= load
-    , [_Control .| _Right] >:  goForwardList ["-l", "10"] >>= load
-    , [_Control .| _g]     >:  promptM "DuckDuckGo search" "" >>= parseURIReference . ("http://duckduckgo.com/html?q=" ++) . pack . escapeURIString isAllowedInURI . unpack >>= load
+    [ [_Control .| _Left]  >:  goBackList    >>= load
+    , [_Control .| _Right] >:  goForwardList >>= load
+    , [_Control .| _g]     >:  promptM "DuckDuckGo search" "" >>= parseURIReferenceM . ("http://duckduckgo.com/html?q=" ++) . pack . escapeURIString isAllowedInURI . unpack >>= load
 -- Bookmarks
-    , [_Control .| _d]     >:  promptM "Bookmark with tags:" "" >>= Bookmarks.add . words
+    , [_Control .| _d]     >:  promptM "Bookmark with tags:" "" >>= Bookmarks.addCurrent . words
     -- , [_Control .| _D]     >:  promptM "Bookmark all instances with tag:" "" >>= \tags -> do
     --     uris <- mapM parseURI =<< sendCommandToAll "GET_URI"
     --     forM uris $ Bookmarks.addCustom . (`Bookmarks.Entry` words tags)
     --     void . Bookmarks.addCustom . (`Bookmarks.Entry` words tags) =<< getURI
-    , [_Alt .| _d]         >:  Bookmarks.deleteByTag ["-l", "10"]
-    , [_Control .| _l]     >:  Bookmarks.select      ["-l", "10"] >>= load
-    , [_Control .| _L]     >:  Bookmarks.selectByTag ["-l", "10"] >>= void . mapM (\uri -> io $ spawn "hbro" ["-u", show uri])
+    , [_Alt .| _d]         >:  Bookmarks.deleteByTag
+    , [_Control .| _l]     >:  Bookmarks.select >>= load
+    , [_Control .| _L]     >:  Bookmarks.selectByTag >>= void . mapM (\uri -> spawn "hbro" ["-u", tshow uri])
 -- History
-    , [_Alt .| _h]         >:  load . History._uri =<< History.select ["-l", "10"]
+    , [_Alt .| _h]         >:  load . History._uri =<< History.select
 -- Settings
     , [_Alt .| _j]         >:  getWebSettings >>= \s -> toggle_ s webSettingsEnableScripts
     , [_Alt .| _p]         >:  getWebSettings >>= \s -> toggle_ s webSettingsEnablePlugins
@@ -72,11 +75,11 @@ myKeyMap = defaultKeyMap <> Map.fromList
 
 
 -- Setup run at start-up
-myStartUpHook :: (OmniReader m) => m ()
+myStartUpHook :: (God r m) => m ()
 myStartUpHook = do
     Config.set homePageL myHomePage
 
-    mainView <- getMainView
+    mainView <- ask
     addHook (mainView^.downloadHookL) myDownloadHook
     addHook (mainView^.loadFinishedHookL) $ const myLoadFinishedHook
 
@@ -88,7 +91,7 @@ myStartUpHook = do
     set s webSettingsUserAgent           firefoxUserAgent
 
 -- Status bar customization: scroll position + zoom level + load progress + current URI + key strokes
-    b <- getBuilder
+    b <- ask
     installScrollWidget =<< getWidget b "scroll"
     installZoomWidget =<< getWidget b "zoom"
     installProgressWidget =<< getWidget b "progress"
@@ -100,4 +103,7 @@ myStartUpHook = do
 
 -- Main function, expected to call 'hbro'
 main :: IO ()
-main = hbro $ def { keyMap = myKeyMap, startUpHook = myStartUpHook }
+main = hbro $ def
+  { keyMap      = myKeyMap
+  , startUpHook = myStartUpHook
+  }

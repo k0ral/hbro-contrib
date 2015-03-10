@@ -1,14 +1,17 @@
+{-# LANGUAGE ConstraintKinds   #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Hbro.Misc where
 
 -- {{{ Imports
 import           Hbro
--- import           Hbro.Gui.MainView
 
 import           Graphics.UI.Gtk.WebKit.WebBackForwardList
 import           Graphics.UI.Gtk.WebKit.WebHistoryItem
 import           Graphics.UI.Gtk.WebKit.WebView
 
-import           Network.URI.Monadic
+import           Network.URI.Extended
 
 import           Safe
 
@@ -32,27 +35,30 @@ dmenu options input = handleIO (\_ -> throwError "Dmenu canceled.") $ do
     io $ hClose out >> hClose err >> void (waitForProcess pid)
     return output
 
+defaultDmenuOptions :: [Text]
+defaultDmenuOptions = ["-l", "10"]
+
 
 -- | List preceding URIs in dmenu and let the user select which one to load.
-goBackList :: (ControlIO m, MainViewReader m, MonadError Text m) => [Text] -> m URI
-goBackList dmenuOptions = do
+goBackList :: (ControlIO m, MonadReader r m, Has MainView r, MonadError Text m) => m URI
+goBackList = do
     list           <- io . webViewGetBackForwardList =<< getWebView
     n              <- io $ webBackForwardListGetBackLength list
     backList       <- io $ webBackForwardListGetBackListWithLimit list n
     dmenuList      <- io $ mapM itemToEntry backList
 
-    parseURIReference . headDef "" . words =<< (dmenu dmenuOptions . unlines . catMaybes) dmenuList
+    parseURIReferenceM . headDef "" . words =<< (dmenu defaultDmenuOptions . unlines . catMaybes) dmenuList
 
 
 -- | List succeeding URIs in dmenu and let the user select which one to load.
-goForwardList :: (ControlIO m, MainViewReader m, MonadError Text m) => [Text] -> m URI
-goForwardList dmenuOptions = do
+goForwardList :: (ControlIO m, MonadReader r m, Has MainView r, MonadError Text m) => m URI
+goForwardList = do
     list        <- io . webViewGetBackForwardList =<< getWebView
     n           <- io $ webBackForwardListGetForwardLength list
     forwardList <- io $ webBackForwardListGetForwardListWithLimit list n
     dmenuList   <- io $ mapM itemToEntry forwardList
 
-    parseURIReference . headDef "" . words =<< (dmenu dmenuOptions . unlines . catMaybes) dmenuList
+    parseURIReferenceM . headDef "" . words =<< (dmenu defaultDmenuOptions . unlines . catMaybes) dmenuList
 
 
 itemToEntry :: WebHistoryItem -> IO (Maybe Text)
