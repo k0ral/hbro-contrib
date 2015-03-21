@@ -21,11 +21,10 @@ import           Hbro.Logger
 import           Hbro.Misc
 
 import           Data.Aeson.Extended
-import qualified Data.ByteString.Lazy as Lazy
-import qualified Data.Set             as Set
+import qualified Data.Set            as Set
 import           Data.Time
 
-import           Filesystem           (copyFile, getAppDataDirectory)
+import           Filesystem          (copyFile, getAppDataDirectory)
 
 import           Network.URI
 -- }}}
@@ -53,14 +52,6 @@ instance FromJSON Entry where
 instance ToJSON Entry where
     toJSON (Entry time uri title) = object ["time" .= time, "uri" .= uri, "title" .= title]
 
--- }}}
-
--- {{{ Util
-readFileE :: (ControlIO m, MonadError Text m) => FilePath -> m Lazy.ByteString
-readFileE = handleIO (throwError . tshow) . readFile
-
-writeFileE :: (ControlIO m, MonadError Text m) => FilePath -> Lazy.ByteString -> m ()
-writeFileE f x = handleIO (throwError . tshow) $ writeFile f x
 -- }}}
 
 dateFormat :: String

@@ -23,7 +23,6 @@ import           Hbro.Logger
 import           Hbro.Misc
 
 import           Data.Aeson.Extended
-import qualified Data.ByteString.Lazy as Lazy
 import qualified Data.Set             as Set
 -- import Data.Random.Extras
 -- import Data.Random.RVar
@@ -54,14 +53,6 @@ instance FromJSON Entry where
 
 instance ToJSON Entry where
     toJSON (Entry u t) = object ["uri" .= u, "tags" .= t]
--- }}}
-
--- {{{ Util
-readFileE :: (ControlIO m, MonadError Text m) => FilePath -> m Lazy.ByteString
-readFileE = handleIO (throwError . tshow) . readFile
-
-writeFileE :: (ControlIO m, MonadError Text m) => FilePath -> Lazy.ByteString -> m ()
-writeFileE f x = handleIO (throwError . tshow) $ writeFile f x
 -- }}}
 
 -- | Return bookmarks file
