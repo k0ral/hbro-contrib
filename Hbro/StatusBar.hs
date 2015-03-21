@@ -9,22 +9,22 @@ module Hbro.StatusBar where
 -- {{{ Imports
 import           Hbro.Event
 import           Hbro.Gui.MainView
-import           Hbro.Keys                       as Key
-import           Hbro.Prelude                    hiding (on)
+import           Hbro.Keys                         as Key
+import           Hbro.Prelude                      hiding (on)
 
 import           Control.Lens.Getter
 
-import           Graphics.Rendering.Pango.Enums
+import           Graphics.Rendering.Pango.Extended
 import           Graphics.Rendering.Pango.Layout
 
 import           Graphics.UI.Gtk.Display.Label
 import           Graphics.UI.Gtk.Misc.Adjustment
 import           Graphics.UI.Gtk.WebKit.WebView
 
-import           Network.URI                     as N
+import           Network.URI                       as N
 
 import           System.Glib.Attributes.Extended
-import           System.Glib.Signals             hiding (Signal)
+import           System.Glib.Signals               hiding (Signal)
 -- }}}
 
 
