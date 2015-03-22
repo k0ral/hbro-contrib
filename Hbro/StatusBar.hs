@@ -3,14 +3,12 @@
 {-# LANGUAGE NoImplicitPrelude   #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns        #-}
 module Hbro.StatusBar where
 
 -- {{{ Imports
-import           Hbro.Event
-import           Hbro.Gui.MainView
+import           Hbro
 import           Hbro.Keys                         as Key
-import           Hbro.Prelude                      hiding (on)
+import           Hbro.Logger
 
 import           Control.Lens.Getter
 
@@ -24,7 +22,6 @@ import           Graphics.UI.Gtk.WebKit.WebView
 import           Network.URI                       as N
 
 import           System.Glib.Attributes.Extended
-import           System.Glib.Signals               hiding (Signal)
 -- }}}
 
 
@@ -69,50 +66,48 @@ installKeyStrokesWidget widget = do
 
 
 -- | Write current load progress in the given 'Label'.
-installProgressWidget :: (BaseIO m, MonadReader r m, Has MainView r) => Label -> m ()
+installProgressWidget :: (ControlIO m, MonadReader r m, Has MainView r) => Label -> m ()
 installProgressWidget widget = do
-    wv <- getWebView
+    mainView <- ask
 -- Load started
-    io . void . on wv loadStarted $ \_ -> do
+    addHook (mainView^.loadStartedHookL) $ \_ -> io $ do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = red}]
         labelSetText widget (asText "0%")
 -- Progress changed
-    io . void . on wv progressChanged $ \progress -> do
+    addHook (mainView^.progressChangedHookL) $ \progress -> io $ do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = yellow}]
         labelSetText widget $ tshow progress ++ "%"
 -- Load finished
-    io . void . on wv loadFinished $ \_ -> do
+    addHook (mainView^.loadFinishedHookL) $ \_ -> io $ do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = green}]
         labelSetText widget (asText "100%")
 -- Error
-    io . void . on wv loadError $ \_ (asText -> _a) _ -> do
+    addHook (mainView^.loadFailedHookL) $ \(_uri, _e) -> io $ do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = red}]
-        labelSetText widget (asText "ERROR")
-        return False
+        labelSetText widget $ asText "100%"
 
     return ()
 
 
 -- | Write current URI, or the destination of a hovered link, in the given Label.
-installURIWidget :: (BaseIO m, MonadReader r m, Has MainView r) => URIColors -> URIColors -> Label -> m ()
+installURIWidget :: (ControlIO m, MonadReader r m, Has MainView r, MonadLogger m) => URIColors -> URIColors -> Label -> m ()
 installURIWidget normalColors secureColors widget = do
-    wv <- getWebView
+    mainView <- ask
 -- URI changed
-    _ <- io $ on wv loadCommitted $ \_ ->
-        (mapM_ (labelSetURI normalColors secureColors widget)) =<< ((>>= N.parseURIReference) `fmap` webViewGetUri wv)
--- Link (un)hovered
-    _ <- io $ on wv hoveringOverLink $ \_title hoveredURI -> do
-        uri <- webViewGetUri wv
-
-        forM_ (hoveredURI >>= N.parseURIReference) $ labelSetURI normalColors secureColors widget
-        unless (isJust hoveredURI) $ forM_ (uri >>= N.parseURIReference) (labelSetURI normalColors secureColors widget)
+    addHook (mainView^.loadCommittedHookL) $ \_ -> void . runExceptT . logErrors $ labelSetURI normalColors secureColors widget =<< getCurrentURI
+-- Link hovered
+    addHook (mainView^.linkHoveredHookL) $ \(uri, _title) -> do
+        labelSetURI normalColors secureColors widget uri
+-- Link unhovered
+    addHook (mainView^.linkUnhoveredHookL) $ \_ -> void . runExceptT . logErrors $ do
+        labelSetURI normalColors secureColors widget =<< getCurrentURI
 
     return ()
 
 
 -- |
-labelSetURI :: URIColors -> URIColors -> Label -> URI -> IO ()
-labelSetURI normalColors secureColors widget uri = do
+labelSetURI :: (MonadIO m) => URIColors -> URIColors -> Label -> URI -> m ()
+labelSetURI normalColors secureColors widget uri = io $ do
     let colors = case uriScheme uri of
           "https:" -> secureColors
           _        -> normalColors
