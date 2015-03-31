@@ -8,6 +8,7 @@ import           Hbro.Gui.MainView
 import           Hbro.Logger
 import           Hbro.Prelude
 
+import           Graphics.UI.Gtk.General.General.Extended
 import           Graphics.UI.Gtk.WebKit.WebSettings
 import           Graphics.UI.Gtk.WebKit.WebView
 
