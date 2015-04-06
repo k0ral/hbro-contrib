@@ -42,13 +42,13 @@ import           System.Process.Extended
 myHomePage = fromJust . N.parseURI $ "https://www.google.com"
 
 -- Download to $HOME
-myDownloadHook :: (ControlIO m) => (URI, Text, Maybe Int) -> m ()
-myDownloadHook (uri, filename, _size) = do
+myDownloadHandler :: (ControlIO m) => (URI, Text, Maybe Int) -> m ()
+myDownloadHandler (uri, filename, _size) = do
     destination <- io getHomeDirectory
     Download.aria destination uri filename
 
-myLoadFinishedHook :: (ControlIO m, MonadReader r m, Has MainView r, MonadLogger m, MonadError Text m, Alternative m) => m ()
-myLoadFinishedHook = History.log
+myLoadFinishedHandler :: (ControlIO m, MonadReader r m, Has MainView r, MonadLogger m, MonadError Text m, Alternative m) => m ()
+myLoadFinishedHandler = History.log
 
 -- Those key bindings are suited for an azerty keyboard
 myKeyMap :: (God r m) => KeyMap m
@@ -75,13 +75,13 @@ myKeyMap = defaultKeyMap <> Map.fromList
 
 
 -- Setup run at start-up
-myStartUpHook :: (God r m) => m ()
-myStartUpHook = do
+myStartUp :: (God r m) => m ()
+myStartUp = do
     Config.set homePageL myHomePage
 
     mainView <- ask
-    addHook (mainView^.downloadHookL) myDownloadHook
-    addHook (mainView^.loadFinishedHookL) $ const myLoadFinishedHook
+    addHandler (mainView^.downloadHandlerL) myDownloadHandler
+    addHandler (mainView^.loadFinishedHandlerL) $ const myLoadFinishedHandler
 
 -- Web settings (cf Graphic.Gtk.WebKit.WebSettings)
     s <- getWebSettings
@@ -104,6 +104,6 @@ myStartUpHook = do
 -- Main function, expected to call 'hbro'
 main :: IO ()
 main = hbro $ def
-  { keyMap      = myKeyMap
-  , startUpHook = myStartUpHook
+  { keyMap  = myKeyMap
+  , startUp = myStartUp
   }
