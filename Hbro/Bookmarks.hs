@@ -28,11 +28,11 @@ import qualified Data.Set             as Set
 -- import Data.Random.RVar
 -- import Data.Random.Source.DevRandom
 
-import           Filesystem           hiding (readFile, writeFile)
-
 import           Network.URI.Extended
 
 import           Safe
+
+import           System.Directory
 -- }}}
 
 -- {{{ Type definitions
@@ -57,53 +57,53 @@ instance ToJSON Entry where
 
 -- | Return bookmarks file
 getBookmarksFile :: (BaseIO m) => m FilePath
-getBookmarksFile = getAppDataDirectory "hbro" >/> "bookmarks"
+getBookmarksFile = getAppUserDataDirectory "hbro" >/> "bookmarks"
 
 -- | Check if the given bookmark 'Entry' is tagged with the given tag.
 hasTag :: Text -> Entry -> Bool
 hasTag tag = member tag . _tags
 
 -- | Add current webpage to bookmarks with given tags
-addCurrent :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadError Text m, Alternative m) => [Text] -> m ()
+addCurrent :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadThrow m, Alternative m) => [Text] -> m ()
 addCurrent tags = (`addCurrent'` tags) =<< getBookmarksFile
 
 -- | Like 'add', but you can specify the bookmarks file path
-addCurrent' :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadError Text m, Alternative m) => FilePath -> [Text] -> m ()
+addCurrent' :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadThrow m, Alternative m) => FilePath -> [Text] -> m ()
 addCurrent' file tags = do
     uri <- getCurrentURI
     void . add file $ Entry uri (Set.fromList tags)
 
 -- | Add a custom entry to bookmarks
-add :: (ControlIO m, MonadLogger m, MonadError Text m, Alternative m)
+add :: (ControlIO m, MonadLogger m, MonadThrow m, Alternative m)
     => FilePath      -- ^ Bookmarks file
     -> Entry         -- ^ Custom bookmark entry
     -> m ()
 add file newEntry = do
   info $ "New bookmark: " ++ describe newEntry
   tryIO . io . copyFile file $ file <.> "bak"
-  entries <- (decodeM =<< readFileE file) <|> return Set.empty
-  writeFileE file . encodePretty $ Set.insert newEntry entries
+  entries <- (decodeM =<< readFile file) <|> return Set.empty
+  writeFile file . encodePretty $ Set.insert newEntry entries
 
 -- | Open a dmenu with all (sorted alphabetically) bookmarks entries, and return the user's selection, if any.
-select :: (ControlIO m, MonadError Text m) => m URI
+select :: (ControlIO m, MonadThrow m) => m URI
 select = (`select'` defaultDmenuOptions) =<< getBookmarksFile
 
 -- | Like 'select', but you can specify the bookmarks file path
-select' :: (ControlIO m, MonadError Text m) => FilePath -> [Text] -> m URI
-select' file dmenuOptions = parseURIReferenceM . lastDef "" . words =<< dmenu dmenuOptions . unlines . sort . map (describe :: Entry -> Text) . Set.toList =<< decodeM =<< readFileE file
+select' :: (ControlIO m, MonadThrow m) => FilePath -> [Text] -> m URI
+select' file dmenuOptions = parseURIReference . lastDef "" . words =<< dmenu dmenuOptions . unlines . sort . map (describe :: Entry -> Text) . Set.toList =<< decodeM =<< readFile file
 
 -- | Open a dmenu with all (sorted alphabetically) bookmarks tags, and return the user's selection, if any.
-selectByTag :: (ControlIO m, MonadLogger m, MonadError Text m) => m [URI]
+selectByTag :: (ControlIO m, MonadLogger m, MonadThrow m) => m [URI]
 selectByTag = (`selectByTag'` defaultDmenuOptions) =<< getBookmarksFile
 
 -- | Like 'selectByTag', but you can specify the bookmarks file path
-selectByTag' :: (ControlIO m, MonadLogger m, MonadError Text m)
+selectByTag' :: (ControlIO m, MonadLogger m, MonadThrow m)
           => FilePath          -- ^ Bookmarks' database file
           -> [Text]            -- ^ dmenu's commandline options
           -> m [URI]
 selectByTag' file dmenuOptions = do
 -- Read bookmarks file
-    entries <- decodeM =<< readFileE file
+    entries <- decodeM =<< readFile file
     let tags = unlines . Set.toList . foldl' Set.union Set.empty $ map _tags entries
 
 -- Let user select a tag
@@ -135,19 +135,19 @@ selectByTag' file dmenuOptions = do
 
 
 -- | Remove all bookmarks entries matching the given tag.
-deleteByTag :: (ControlIO m, MonadLogger m, MonadError Text m) => m ()
+deleteByTag :: (ControlIO m, MonadLogger m, MonadThrow m) => m ()
 deleteByTag = (`deleteByTag'` defaultDmenuOptions) =<< getBookmarksFile
 
 -- | Like 'selectByTag', but you can specify the bookmarks file path
-deleteByTag' :: (ControlIO m, MonadLogger m, MonadError Text m)
+deleteByTag' :: (ControlIO m, MonadLogger m, MonadThrow m)
               => FilePath          -- ^ Bookmarks' database file
               -> [Text]            -- ^ dmenu's commandline options
               -> m ()
 deleteByTag' file dmenuOptions = do
-    entries <- decodeM =<< readFileE file
+    entries <- decodeM =<< readFile file
     let tags = unlines . Set.toList . foldl' Set.union Set.empty . map _tags $ Set.toList entries
 
     tag <- dmenu dmenuOptions tags
     info $ "Deleting bookmarks with tag " ++ tag
     tryIO . io . copyFile file $ file <.> "bak"
-    writeFileE file . encodePretty $ Set.filter (not . hasTag tag) entries
+    writeFile file . encodePretty $ Set.filter (not . hasTag tag) entries

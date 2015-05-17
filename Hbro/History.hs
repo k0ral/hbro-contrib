@@ -7,6 +7,7 @@
 -- | Designed to be imported as @qualified@.
 module Hbro.History
     ( Entry(..)
+    , HistoryException(..)
     , log
     , log'
     , add
@@ -24,9 +25,9 @@ import           Data.Aeson.Extended
 import qualified Data.Set            as Set
 import           Data.Time
 
-import           Filesystem          (copyFile, getAppDataDirectory)
-
 import           Network.URI
+
+import           System.Directory
 -- }}}
 
 -- {{{ Type definitions
@@ -52,20 +53,25 @@ instance FromJSON Entry where
 instance ToJSON Entry where
     toJSON (Entry time uri title) = object ["time" .= time, "uri" .= uri, "title" .= title]
 
+data HistoryException = InvalidSelection deriving(Eq)
+
+instance Exception HistoryException
+instance Show HistoryException where
+  show InvalidSelection = "Invalid history item selected."
 -- }}}
 
 dateFormat :: String
 dateFormat = "%F %T"
 
 getHistoryFile :: (BaseIO m) => m FilePath
-getHistoryFile = getAppDataDirectory "hbro" >/> "history"
+getHistoryFile = getAppUserDataDirectory "hbro" >/> "history"
 
 -- | Log current visited page to history database
-log :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadError Text m, Alternative m) => m ()
+log :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadThrow m, Alternative m) => m ()
 log = log' =<< getHistoryFile
 
 -- | Like 'log', but you can specify the history file path
-log' :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadError Text m, Alternative m) => FilePath -> m ()
+log' :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadThrow m, Alternative m) => FilePath -> m ()
 log' file = do
     uri      <- getCurrentURI
     title    <- getPageTitle
@@ -74,25 +80,25 @@ log' file = do
     add' file (Entry now uri title)
 
 -- | Add a new entry to history database
-add :: (ControlIO m, MonadLogger m, MonadError Text m, Alternative m) => Entry -> m ()
+add :: (ControlIO m, MonadLogger m, MonadThrow m, Alternative m) => Entry -> m ()
 add newEntry = (`add'` newEntry) =<< getHistoryFile
 
 -- | Like 'add', but you can specify the history file path
-add' :: (ControlIO m, MonadLogger m, MonadError Text m, Alternative m) => FilePath -> Entry -> m ()
+add' :: (ControlIO m, MonadLogger m, MonadThrow m, Alternative m) => FilePath -> Entry -> m ()
 add' file newEntry = do
-    debug $ "Adding new entry <" ++ tshow (_uri newEntry) ++ "> to history file <" ++ fpToText file ++ ">"
+    debug $ "Adding new entry <" ++ tshow (_uri newEntry) ++ "> to history file <" ++ pack file ++ ">"
     tryIO . io . copyFile file $ file <.> "bak"
-    entries <- (decodeM =<< readFileE file) <|> return Set.empty
+    entries <- (decodeM =<< readFile file) <|> return Set.empty
 
-    writeFileE file . encodePretty $ Set.insert newEntry entries
+    writeFile file . encodePretty $ Set.insert newEntry entries
 
 -- | Open a dmenu with all (sorted alphabetically) history entries, and return the user's selection, if any
-select :: (ControlIO m, MonadError Text m) => m Entry
+select :: (ControlIO m, MonadThrow m) => m Entry
 select = (`select'` defaultDmenuOptions) =<< getHistoryFile
 
 -- | Like 'select', but you can specify the history file path
-select' :: (ControlIO m, MonadError Text m) => FilePath -> [Text] -> m Entry
+select' :: (ControlIO m, MonadThrow m) => FilePath -> [Text] -> m Entry
 select' file dmenuOptions = do
-  entries <- zip [1..] . sortBy (flip (comparing _time)) <$> (decodeM =<< readFileE file)
+  entries <- zip [1..] . sortBy (flip (comparing _time)) <$> (decodeM =<< readFile file)
   result  <- dmenu dmenuOptions . unlines $ map (\(i :: Int, e :: Entry) -> tshow i ++ " " ++ describe e) entries
-  maybe (throwError "Invalid history item selected") return ((`lookup` entries) =<< readMay =<< headMay (words result))
+  maybe (throwM InvalidSelection) return ((`lookup` entries) =<< readMay =<< headMay (words result))

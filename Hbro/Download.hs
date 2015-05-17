@@ -19,16 +19,16 @@ aria, wget, axel :: (ControlIO m)
                  -> URI      -- ^ URI to download
                  -> Text     -- ^ Destination file name
                  -> m ()
-aria (fpToText -> destination) (tshow -> uri) outputFile
+aria (pack -> destination) (tshow -> uri) outputFile
   = downloadWith "aria2c" [uri, "-d", destination, "-o", outputFile, "-q"] outputFile
 
 wget destination (tshow -> uri) outputFile
   = downloadWith "wget" [uri, "-O", dest] outputFile
-    where dest = fpToText (destination </> fpFromText outputFile)
+    where dest = pack (destination </> unpack outputFile)
 
 axel destination (tshow -> uri) outputFile
   = downloadWith "axel" [uri, "-o", dest] outputFile
-    where dest = fpToText (destination </> fpFromText outputFile)
+    where dest = pack (destination </> unpack outputFile)
 
 downloadWith :: (ControlIO m) => Text -> [Text] -> Text -> m ()
 downloadWith (unpack -> program) (map unpack -> args) (unpack -> outputFile) = handleIO (io . print) . io $ do

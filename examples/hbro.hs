@@ -27,13 +27,12 @@ import           Control.Lens.Getter
 import qualified Data.Map                           as Map
 import qualified Data.Set                           as Set
 
-import           Filesystem
-
 import           Graphics.UI.Gtk.WebKit.WebSettings
 
 import qualified Network.URI                        as N
 import           Network.URI.Extended
 
+import           System.Directory
 import           System.Glib.Attributes.Extended
 import           System.Process.Extended
 -- }}}
@@ -47,16 +46,16 @@ myDownloadHandler (uri, filename, _size) = do
     destination <- io getHomeDirectory
     Download.aria destination uri filename
 
-myLoadFinishedHandler :: (ControlIO m, MonadReader r m, Has MainView r, MonadLogger m, MonadError Text m, Alternative m) => m ()
+myLoadFinishedHandler :: (ControlIO m, MonadReader r m, Has MainView r, MonadLogger m, MonadThrow m, Alternative m) => m ()
 myLoadFinishedHandler = History.log
 
 -- Those key bindings are suited for an azerty keyboard
-myKeyMap :: (God r m) => KeyMap m
+myKeyMap :: (God r m, MonadCatch m) => KeyMap m
 myKeyMap = defaultKeyMap <> Map.fromList
   -- Browse
     [ [_Control .| _Left]  >:  goBackList    >>= load
     , [_Control .| _Right] >:  goForwardList >>= load
-    , [_Control .| _g]     >:  promptM "DuckDuckGo search" "" >>= parseURIReferenceM . ("http://duckduckgo.com/html?q=" ++) . pack . escapeURIString isAllowedInURI . unpack >>= load
+    , [_Control .| _g]     >:  promptM "DuckDuckGo search" "" >>= parseURIReference . ("http://duckduckgo.com/html?q=" ++) . pack . escapeURIString isAllowedInURI . unpack >>= load
 -- Bookmarks
     , [_Control .| _d]     >:  promptM "Bookmark with tags:" "" >>= Bookmarks.addCurrent . words
     -- , [_Control .| _D]     >:  promptM "Bookmark all instances with tag:" "" >>= \tags -> do
@@ -75,7 +74,7 @@ myKeyMap = defaultKeyMap <> Map.fromList
 
 
 -- Setup run at start-up
-myStartUp :: (God r m) => m ()
+myStartUp :: (God r m, MonadCatch m) => m ()
 myStartUp = do
     Config.set homePageL myHomePage
 

@@ -21,11 +21,11 @@ import           System.Process
 
 -- | Open dmenu with given input and return selected entry.
 -- This will block effectively the current thread.
-dmenu :: (ControlIO m, MonadError Text m)
+dmenu :: (ControlIO m, MonadThrow m)
       => [Text]    -- ^ dmenu's commandline options
       -> Text      -- ^ dmenu's input
       -> m Text    -- ^ Selected entry
-dmenu options input = handleIO (\_ -> throwError "Dmenu canceled.") $ do
+dmenu options input = do
     (in_, out, err, pid) <- io $ runInteractiveProcess "dmenu" (map unpack options) Nothing Nothing
     hPut in_ input
     io $ hClose in_
@@ -40,25 +40,25 @@ defaultDmenuOptions = ["-l", "10"]
 
 
 -- | List preceding URIs in dmenu and let the user select which one to load.
-goBackList :: (ControlIO m, MonadReader r m, Has MainView r, MonadError Text m) => m URI
+goBackList :: (ControlIO m, MonadReader r m, Has MainView r, MonadThrow m) => m URI
 goBackList = do
     list           <- io . webViewGetBackForwardList =<< getWebView
     n              <- io $ webBackForwardListGetBackLength list
     backList       <- io $ webBackForwardListGetBackListWithLimit list n
     dmenuList      <- io $ mapM itemToEntry backList
 
-    parseURIReferenceM . headDef "" . words =<< (dmenu defaultDmenuOptions . unlines . catMaybes) dmenuList
+    parseURIReference . headDef "" . words =<< (dmenu defaultDmenuOptions . unlines . catMaybes) dmenuList
 
 
 -- | List succeeding URIs in dmenu and let the user select which one to load.
-goForwardList :: (ControlIO m, MonadReader r m, Has MainView r, MonadError Text m) => m URI
+goForwardList :: (ControlIO m, MonadReader r m, Has MainView r, MonadThrow m) => m URI
 goForwardList = do
     list        <- io . webViewGetBackForwardList =<< getWebView
     n           <- io $ webBackForwardListGetForwardLength list
     forwardList <- io $ webBackForwardListGetForwardListWithLimit list n
     dmenuList   <- io $ mapM itemToEntry forwardList
 
-    parseURIReferenceM . headDef "" . words =<< (dmenu defaultDmenuOptions . unlines . catMaybes) dmenuList
+    parseURIReference . headDef "" . words =<< (dmenu defaultDmenuOptions . unlines . catMaybes) dmenuList
 
 
 itemToEntry :: WebHistoryItem -> IO (Maybe Text)

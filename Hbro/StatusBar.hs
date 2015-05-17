@@ -92,7 +92,7 @@ installProgressWidget widget = do
 
 
 -- | Write current URI, or the destination of a hovered link, in the given Label.
-installURIWidget :: (ControlIO m, MonadResource m, MonadReader r m, Has MainView r, MonadLogger m)
+installURIWidget :: (ControlIO m, MonadResource m, MonadReader r m, Has MainView r, MonadLogger m, MonadCatch m)
                  => URIColors -> URIColors -> Label -> m ()
 installURIWidget normalColors secureColors widget = do
     mainView <- ask
@@ -102,7 +102,7 @@ installURIWidget normalColors secureColors widget = do
     addHandler (mainView^.linkHoveredHandlerL) $ \(uri, _title) ->
         labelSetURI normalColors secureColors widget uri
 -- Link unhovered
-    addHandler (mainView^.linkUnhoveredHandlerL) $ \_ -> void . runExceptT . logErrors $
+    addHandler (mainView^.linkUnhoveredHandlerL) $ \_ -> void . logErrors $
         labelSetURI normalColors secureColors widget =<< getCurrentURI
 
     return ()
