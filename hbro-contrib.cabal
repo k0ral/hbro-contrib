@@ -58,4 +58,4 @@ Library
         Hbro.Misc
         Hbro.Settings
         Hbro.StatusBar
-    Ghc-options: -Wall -fno-warn-unused-do-bind -threaded
+    Ghc-options: -Wall -fno-warn-unused-do-bind
