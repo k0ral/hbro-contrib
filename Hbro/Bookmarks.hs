@@ -37,22 +37,22 @@ import           System.Directory
 
 -- {{{ Type definitions
 data Entry = Entry
-    { _uri  :: URI
-    , _tags :: Set Text
-    }
+  { _uri  :: URI
+  , _tags :: Set Text
+  }
 
 deriving instance Eq Entry
 deriving instance Ord Entry
 
 instance Describable Entry where
-    describe (Entry uri tags) = unwords $ map (\x -> "[" ++ x ++ "]") (Set.toList tags) ++ [tshow uri]
+  describe (Entry uri tags) = unwords $ map (\x -> "[" ++ x ++ "]") (Set.toList tags) ++ [tshow uri]
 
 instance FromJSON Entry where
-    parseJSON (Object v) = Entry <$> v .: "uri" <*> v .: "tags"
-    parseJSON _          = mzero
+  parseJSON (Object v) = Entry <$> (unwrapURI <$> v .: "uri") <*> v .: "tags"
+  parseJSON _          = mzero
 
 instance ToJSON Entry where
-    toJSON (Entry u t) = object ["uri" .= u, "tags" .= t]
+  toJSON (Entry u t) = object ["uri" .= WrappedURI u, "tags" .= t]
 -- }}}
 
 -- | Return bookmarks file

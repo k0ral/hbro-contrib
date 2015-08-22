@@ -33,8 +33,8 @@ installScrollWidget widget = do
     gAsync $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = gray}]
 
     mainView <- ask
-    addHandler (mainView^.scrolledHandlerL) . const $ do
-        adjustment <- getAdjustment Vertical $ mainView^.scrollWindowL
+    addHandler (mainView^.scrolledHandler_) . const $ do
+        adjustment <- getAdjustment Vertical $ mainView^.scrollWindow_
         current    <- get adjustment adjustmentValue
         lower      <- get adjustment adjustmentLower
         upper      <- get adjustment adjustmentUpper
@@ -53,7 +53,7 @@ installZoomWidget widget = do
     gAsync $ labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = Color 65535 65535 65535}]
     mainView <- ask
     getWebView >>= \w -> get w webViewZoomLevel >>= updateZoomLabel
-    void $ addHandler (mainView^.zoomLevelChangedHandlerL) updateZoomLabel
+    void $ addHandler (mainView^.zoomLevelChangedHandler_) updateZoomLabel
   where updateZoomLabel = gAsync . labelSetMarkup widget . escapeMarkup . show
 
 
@@ -64,7 +64,7 @@ installKeyStrokesWidget widget = do
     (keySignal :: Signal KeyMapPressed) <- ask
     void . addHandler keySignal $ \(strokes, isBound) -> gAsync $ do
       labelSetText widget . unwords $ map describe strokes
-      labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = green <| isBound |> red}]
+      labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = if isBound then green else red}]
 
 
 -- | Write current load progress in the given 'Label'.
@@ -72,19 +72,19 @@ installProgressWidget :: (ControlIO m, MonadLogger m, MonadResource m, MonadRead
 installProgressWidget widget = do
     mainView <- ask
 -- Load started
-    addHandler (mainView^.loadStartedHandlerL) $ \_ -> gAsync $ do
+    addHandler (mainView^.loadStartedHandler_) $ \_ -> gAsync $ do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = red}]
         labelSetText widget (asText "0%")
 -- Progress changed
-    addHandler (mainView^.progressChangedHandlerL) $ \progress -> gAsync $ do
+    addHandler (mainView^.progressChangedHandler_) $ \progress -> gAsync $ do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = yellow}]
         labelSetText widget $ tshow progress ++ "%"
 -- Load finished
-    addHandler (mainView^.loadFinishedHandlerL) $ \_ -> gAsync $ do
+    addHandler (mainView^.loadFinishedHandler_) $ \_ -> gAsync $ do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = green}]
         labelSetText widget (asText "100%")
 -- Error
-    addHandler (mainView^.loadFailedHandlerL) $ \(_uri, _e) -> gAsync $ do
+    addHandler (mainView^.loadFailedHandler_) $ \(_uri, _e) -> gAsync $ do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = red}]
         labelSetText widget $ asText "100%"
 
@@ -97,12 +97,12 @@ installURIWidget :: (ControlIO m, MonadResource m, MonadReader r m, Has MainView
 installURIWidget normalColors secureColors widget = do
     mainView <- ask
 -- URI changed
-    addHandler (mainView^.uriChangedHandlerL) $ labelSetURI normalColors secureColors widget
+    addHandler (mainView^.uriChangedHandler_) $ labelSetURI normalColors secureColors widget
 -- Link hovered
-    addHandler (mainView^.linkHoveredHandlerL) $ \(uri, _title) ->
+    addHandler (mainView^.linkHoveredHandler_) $ \(uri, _title) ->
         labelSetURI normalColors secureColors widget uri
 -- Link unhovered
-    addHandler (mainView^.linkUnhoveredHandlerL) $ \_ -> void . logErrors $
+    addHandler (mainView^.linkUnhoveredHandler_) $ \_ -> void . logErrors $
         labelSetURI normalColors secureColors widget =<< getCurrentURI
 
     return ()

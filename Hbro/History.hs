@@ -47,11 +47,11 @@ instance Describable Entry where
     describe (Entry time uri title) = unwords [pack (formatTime defaultTimeLocale dateFormat time), tshow uri, title]
 
 instance FromJSON Entry where
-    parseJSON (Object v) = Entry <$> v .: "time" <*> v .: "uri" <*> v .: "title"
+    parseJSON (Object v) = Entry <$> v .: "time" <*> (unwrapURI <$> v .: "uri") <*> v .: "title"
     parseJSON _          = mzero
 
 instance ToJSON Entry where
-    toJSON (Entry time uri title) = object ["time" .= time, "uri" .= uri, "title" .= title]
+    toJSON (Entry time uri title) = object ["time" .= time, "uri" .= WrappedURI uri, "title" .= title]
 
 data HistoryException = InvalidSelection deriving(Eq)
 
