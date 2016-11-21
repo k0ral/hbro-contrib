@@ -67,11 +67,11 @@ getHistoryFile :: (BaseIO m) => m FilePath
 getHistoryFile = getAppUserDataDirectory "hbro" >/> "history"
 
 -- | Log current visited page to history database
-log :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadThrow m, Alternative m) => m ()
+log :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadCatch m, MonadThrow m, Alternative m) => m ()
 log = log' =<< getHistoryFile
 
 -- | Like 'log', but you can specify the history file path
-log' :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadThrow m, Alternative m) => FilePath -> m ()
+log' :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadCatch m, MonadThrow m, Alternative m) => FilePath -> m ()
 log' file = do
     uri      <- getCurrentURI
     title    <- getPageTitle
@@ -80,11 +80,11 @@ log' file = do
     add' file (Entry now uri title)
 
 -- | Add a new entry to history database
-add :: (ControlIO m, MonadLogger m, MonadThrow m, Alternative m) => Entry -> m ()
+add :: (ControlIO m, MonadLogger m, MonadCatch m, MonadThrow m, Alternative m) => Entry -> m ()
 add newEntry = (`add'` newEntry) =<< getHistoryFile
 
 -- | Like 'add', but you can specify the history file path
-add' :: (ControlIO m, MonadLogger m, MonadThrow m, Alternative m) => FilePath -> Entry -> m ()
+add' :: (ControlIO m, MonadLogger m, MonadCatch m, MonadThrow m, Alternative m) => FilePath -> Entry -> m ()
 add' file newEntry = do
     debug $ "Adding new entry <" ++ tshow (_uri newEntry) ++ "> to history file <" ++ pack file ++ ">"
     tryIO . io . copyFile file $ file <.> "bak"
