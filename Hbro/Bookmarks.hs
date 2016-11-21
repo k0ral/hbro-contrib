@@ -64,17 +64,17 @@ hasTag :: Text -> Entry -> Bool
 hasTag tag = member tag . _tags
 
 -- | Add current webpage to bookmarks with given tags
-addCurrent :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadThrow m, Alternative m) => [Text] -> m ()
+addCurrent :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadCatch m, MonadThrow m, Alternative m) => [Text] -> m ()
 addCurrent tags = (`addCurrent'` tags) =<< getBookmarksFile
 
 -- | Like 'add', but you can specify the bookmarks file path
-addCurrent' :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadThrow m, Alternative m) => FilePath -> [Text] -> m ()
+addCurrent' :: (ControlIO m, MonadLogger m, MonadReader r m, Has MainView r, MonadCatch m, MonadThrow m, Alternative m) => FilePath -> [Text] -> m ()
 addCurrent' file tags = do
     uri <- getCurrentURI
     void . add file $ Entry uri (Set.fromList tags)
 
 -- | Add a custom entry to bookmarks
-add :: (ControlIO m, MonadLogger m, MonadThrow m, Alternative m)
+add :: (ControlIO m, MonadLogger m, MonadCatch m, MonadThrow m, Alternative m)
     => FilePath      -- ^ Bookmarks file
     -> Entry         -- ^ Custom bookmark entry
     -> m ()
@@ -135,11 +135,11 @@ selectByTag' file dmenuOptions = do
 
 
 -- | Remove all bookmarks entries matching the given tag.
-deleteByTag :: (ControlIO m, MonadLogger m, MonadThrow m) => m ()
+deleteByTag :: (ControlIO m, MonadLogger m, MonadCatch m, MonadThrow m) => m ()
 deleteByTag = (`deleteByTag'` defaultDmenuOptions) =<< getBookmarksFile
 
 -- | Like 'selectByTag', but you can specify the bookmarks file path
-deleteByTag' :: (ControlIO m, MonadLogger m, MonadThrow m)
+deleteByTag' :: (ControlIO m, MonadLogger m, MonadCatch m, MonadThrow m)
               => FilePath          -- ^ Bookmarks' database file
               -> [Text]            -- ^ dmenu's commandline options
               -> m ()

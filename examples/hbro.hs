@@ -41,12 +41,12 @@ import           System.Process.Extended
 myHomePage = fromJust . N.parseURI $ "https://www.google.com"
 
 -- Download to $HOME
-myDownloadHandler :: (ControlIO m) => (URI, Text, Maybe Int) -> m ()
+myDownloadHandler :: (ControlIO m, MonadCatch m) => (URI, Text, Maybe Int) -> m ()
 myDownloadHandler (uri, filename, _size) = do
     destination <- io getHomeDirectory
     Download.aria destination uri filename
 
-myLoadFinishedHandler :: (ControlIO m, MonadReader r m, Has MainView r, MonadLogger m, MonadThrow m, Alternative m) => m ()
+myLoadFinishedHandler :: (ControlIO m, MonadReader r m, Has MainView r, MonadLogger m, MonadCatch m, MonadThrow m, Alternative m) => m ()
 myLoadFinishedHandler = History.log
 
 -- Those key bindings are suited for an azerty keyboard

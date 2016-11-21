@@ -14,7 +14,7 @@ import           System.Process
 -- }}}
 
 
-aria, wget, axel :: (ControlIO m)
+aria, wget, axel :: (ControlIO m, MonadCatch m)
                  => FilePath -- ^ Destination directory
                  -> URI      -- ^ URI to download
                  -> Text     -- ^ Destination file name
@@ -30,7 +30,7 @@ axel destination (tshow -> uri) outputFile
   = downloadWith "axel" [uri, "-o", dest] outputFile
     where dest = pack (destination </> unpack outputFile)
 
-downloadWith :: (ControlIO m) => Text -> [Text] -> Text -> m ()
+downloadWith :: (ControlIO m, MonadCatch m) => Text -> [Text] -> Text -> m ()
 downloadWith (unpack -> program) (map unpack -> args) (unpack -> outputFile) = handleIO (io . print) . io $ do
     callProcess "notify-send" ["Download started", outputFile]
     callProcess program args
