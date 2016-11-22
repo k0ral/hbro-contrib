@@ -1,9 +1,9 @@
 {-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 module Data.Aeson.Extended (module X, module Data.Aeson.Extended) where
 
 -- {{{ Imports
-import           ClassyPrelude
+import           Control.Exception.Safe
+import           Control.Monad (MonadPlus(..))
 
 import           Data.Aeson               as X
 import           Data.Aeson.Encode.Pretty as X
@@ -13,11 +13,10 @@ import           Data.Text                as T
 import           Network.URI
 -- }}}
 
-data JsonException = UnableDecode String deriving(Eq)
+data JsonException = UnableDecode String deriving(Eq, Show)
 
-instance Exception JsonException
-instance Show JsonException where
-  show (UnableDecode s) = s
+instance Exception JsonException where
+  displayException (UnableDecode s) = s
 
 -- | Trivial wrapper around 'URI', used to avoid orphan instances.
 newtype WrappedURI = WrappedURI { unwrapURI :: URI }

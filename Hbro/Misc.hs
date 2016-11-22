@@ -7,6 +7,8 @@ module Hbro.Misc where
 -- {{{ Imports
 import           Hbro
 
+import           Data.IOData
+
 import           Graphics.UI.Gtk.WebKit.WebBackForwardList
 import           Graphics.UI.Gtk.WebKit.WebHistoryItem
 import           Graphics.UI.Gtk.WebKit.WebView
@@ -15,13 +17,14 @@ import           Network.URI.Extended
 
 import           Safe
 
+import           System.IO (hClose)
 import           System.Process
 -- }}}
 
 
 -- | Open dmenu with given input and return selected entry.
 -- This will block effectively the current thread.
-dmenu :: (ControlIO m, MonadThrow m)
+dmenu :: (ControlIO m)
       => [Text]    -- ^ dmenu's commandline options
       -> Text      -- ^ dmenu's input
       -> m Text    -- ^ Selected entry
@@ -66,5 +69,5 @@ itemToEntry item = do
     title <- webHistoryItemGetTitle item
     uri   <- webHistoryItemGetUri   item
     case uri of
-        Just u -> return $ Just (u ++ " | " ++ fromMaybe "Untitled" title)
+        Just u -> return $ Just (u <> " | " <> fromMaybe "Untitled" title)
         _      -> return Nothing

@@ -41,10 +41,10 @@ installScrollWidget widget = do
         page       <- get adjustment adjustmentPageSize
 
         case upper-lower-page of
-            0 -> gAsync $ labelSetText widget (asText "ALL")
+            0 -> gAsync $ labelSetText widget ("ALL" :: Text)
             x -> gAsync . labelSetText widget $ show ((round $ current/x*100) :: Int) ++ "%"
 
-    gAsync $ labelSetText widget (asText "0%")
+    gAsync $ labelSetText widget ("0%" :: Text)
 
 -- | /!\\ Doesn't work for now.
 -- Write current zoom level in the given Label.
@@ -54,7 +54,7 @@ installZoomWidget widget = do
     mainView <- ask
     getWebView >>= \w -> get w webViewZoomLevel >>= updateZoomLabel
     void $ addHandler (mainView^.zoomLevelChangedHandler_) updateZoomLabel
-  where updateZoomLabel = gAsync . labelSetMarkup widget . escapeMarkup . show
+  where updateZoomLabel a = gAsync $ labelSetMarkup widget $ escapeMarkup $ (show a :: Text)
 
 
 -- | Write current keystrokes state in the given 'Label'
@@ -68,25 +68,25 @@ installKeyStrokesWidget widget = do
 
 
 -- | Write current load progress in the given 'Label'.
-installProgressWidget :: (ControlIO m, MonadLogger m, MonadResource m, MonadReader r m, Has MainView r) => Label -> m ()
+installProgressWidget :: (ControlIO m, MonadResource m, MonadReader r m, Has MainView r) => Label -> m ()
 installProgressWidget widget = do
     mainView <- ask
 -- Load started
     addHandler (mainView^.loadStartedHandler_) $ \_ -> gAsync $ do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = red}]
-        labelSetText widget (asText "0%")
+        labelSetText widget ("0%" :: Text)
 -- Progress changed
     addHandler (mainView^.progressChangedHandler_) $ \progress -> gAsync $ do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = yellow}]
-        labelSetText widget $ tshow progress ++ "%"
+        labelSetText widget $ (show progress <> "%" :: Text)
 -- Load finished
     addHandler (mainView^.loadFinishedHandler_) $ \_ -> gAsync $ do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = green}]
-        labelSetText widget (asText "100%")
+        labelSetText widget ("100%" :: Text)
 -- Error
     addHandler (mainView^.loadFailedHandler_) $ \(_uri, _e) -> gAsync $ do
         labelSetAttributes widget [AttrForeground {paStart = 0, paEnd = -1, paColor = red}]
-        labelSetText widget $ asText "100%"
+        labelSetText widget $ ("100%" :: Text)
 
     return ()
 
@@ -130,7 +130,7 @@ labelSetURI normalColors secureColors widget uri = gAsync $ do
         , AttrForeground{ paStart = i+2+j+k+l, paEnd = -1,          paColor = mFragment colors }
         ]
 
-    labelSetText widget (show uri)
+    labelSetText widget (show uri :: Text)
 
 
 data URIColors = URIColors
