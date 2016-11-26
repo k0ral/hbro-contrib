@@ -10,7 +10,6 @@ import           Hbro
 import           Hbro.Keys                                as Key
 import           Hbro.Logger
 
-import           Control.Lens.Getter
 import           Control.Monad.Trans.Resource
 
 import           Graphics.Rendering.Pango.Extended
@@ -20,6 +19,8 @@ import           Graphics.UI.Gtk.Display.Label
 import           Graphics.UI.Gtk.General.General.Extended
 import           Graphics.UI.Gtk.Misc.Adjustment
 import           Graphics.UI.Gtk.WebKit.WebView
+
+import           Lens.Micro
 
 import           Network.URI                              as N
 
